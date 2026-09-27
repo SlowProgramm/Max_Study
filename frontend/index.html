@@ -3,12 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <title>MAX Study</title>
+ <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      background: #f5f7fa;
+    }
+    h1 { font-size: 32px; color: #222; }
+    .buttons {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    button {
+      padding: 16px 32px;
+      font-size: 18px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.1s, background 0.15s;
+    }
+    button:hover { transform: translateY(-2px); }
+    button:active { transform: translateY(0); }
+    .teacher { background: #4c8bf5; color: white; }
+    .student { background: #34c759; color: white; }
+  </style>
 </head>
 
 <body>
 
-<h1>MAX Study</h1>
-
+<h1>Max Study</h1>
+  <p>Выберите роль</p>
+<div class="buttons">
+    <button class="teacher" onclick="location.href='teacher.html'">Я учитель</button>
+    <button class="student" onclick="location.href='student.html'">Я ученик</button>
+  </div>
 
 <button onclick="location.href='teacher.html'">
     Создать тест

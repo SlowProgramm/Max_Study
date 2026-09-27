@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Ученик — Max Study</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      background: #f5f7fa;
+    }
+    h1 { font-size: 28px; }
+    .buttons { display: flex; flex-direction: column; gap: 12px; width: 260px; }
+    button {
+      padding: 16px;
+      font-size: 18px;
+      border: none;
+      border-radius: 10px;
+      background: #34c759;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover { background: #2aa84a; }
+    .back {
+      background: transparent;
+      color: #34c759;
+      font-size: 14px;
+      padding: 8px;
+      width: auto;
+    }
+    .back:hover { background: transparent; text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>Меню ученика</h1>
+
+  <div class="buttons">
+    <button onclick="location.href='my-tests.html'">Мои тесты</button>
+    <button onclick="location.href='smart-notes.html'">Умный конспект</button>
+    <button class="back" onclick="location.href='index.html'">← Назад</button>
+  </div>
+</body>
+</html>
