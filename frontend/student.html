@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0">
+
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<title>MAX Study</title>
+
+
+<style>
+
+
+body {
+
+    font-family: Arial, sans-serif;
+
+    max-width: 900px;
+
+    margin: 40px auto;
+
+    padding: 0 15px;
+
+}
+
+
+input {
+
+    padding: 8px;
+
+    margin: 5px;
+
+}
+
+
+
+button {
+
+    padding: 10px 20px;
+
+    margin: 10px;
+
+    cursor:pointer;
+
+}
+
+
+
+.question {
+
+    border:1px solid #ddd;
+
+    border-radius:12px;
+
+    padding:20px;
+
+    margin-bottom:20px;
+
+}
+
+
+
+.answer {
+
+    margin:10px 0;
+
+}
+
+
+
+.result {
+
+    margin-top:30px;
+
+    padding:20px;
+
+    background:#eee;
+
+    border-radius:12px;
+
+}
+
+
+
+.wrong {
+
+    background:#fff0f0;
+
+    border:1px solid red;
+
+    padding:15px;
+
+    border-radius:10px;
+
+    margin-bottom:15px;
+
+}
+
+
+.correct {
+
+    color:green;
+
+}
+
+
+.your {
+
+    color:red;
+
+}
+
+
+</style>
+
+
+</head>
+
+
+
+<body>
+
+
+<h1>
+MAX Study
+</h1>
+
+
+
+<h2>
+Введите код теста
+</h2>
+
+
+<input
+id="code"
+placeholder="Код теста"
+>
+
+
+<button onclick="loadTest()">
+Начать
+</button>
+
+
+
+<div id="test"></div>
+
+
+
+<button
+id="submitButton"
+style="display:none"
+onclick="submitTest()"
+>
+
+Завершить тест
+
+</button>
+
+
+
+<div id="result"></div>
+
+
+
+<script>
+
+
+let attemptId = null;
+
+let questions = [];
+
+
+
+
+
+async function loadTest(){
+
+
+    const code =
+    document.getElementById("code").value;
+
+
+
+    const response =
+    await fetch(
+        `http://localhost:8000/tests/code/${code}`
+    );
+
+
+
+    const test =
+    await response.json();
+
+
+
+    if(test.error){
+
+        alert(test.error);
+
+        return;
+
+    }
+
+
+
+    questions =
+    test.questions;
+
+
+
+    const start =
+    await fetch(
+        `http://localhost:8000/tests/${code}/start`,
+        {
+            method:"POST"
+        }
+    );
+
+
+
+    const attempt =
+    await start.json();
+
+
+
+    attemptId =
+    attempt.attempt_id;
+
+
+
+    renderTest(test);
+
+
+}
+
+
+
+
+
+
+
+function renderTest(test){
+
+
+    let html = `
+
+    <h2>
+    ${test.title}
+    </h2>
+
+    `;
+
+
+
+    test.questions.forEach(
+        (question,index)=>{
+
+
+        html += `
+
+
+        <div class="question">
+
+
+        <h3>
+        ${index+1}. ${question.text}
+        </h3>
+
+
+        `;
+
+
+
+        question.answers.forEach(
+            answer=>{
+
+
+            html += `
+
+
+            <div class="answer">
+
+
+            <label>
+
+
+            <input
+
+            type="radio"
+
+            name="q_${question.id}"
+
+            value="${answer.id}"
+
+            >
+
+
+            ${answer.text}
+
+
+            </label>
+
+
+            </div>
+
+
+            `;
+
+
+            }
+
+        );
+
+
+        html += `
+
+        </div>
+
+        `;
+
+
+        }
+
+    );
+
+
+
+    document
+    .getElementById("test")
+    .innerHTML = html;
+
+
+
+    document
+    .getElementById("submitButton")
+    .style.display="block";
+
+
+}
+
+
+
+
+
+
+
+
+
+async function submitTest(){
+
+
+
+    let answers = [];
+
+
+
+    questions.forEach(
+        question=>{
+
+
+        let selected =
+        document.querySelector(
+            `input[name="q_${question.id}"]:checked`
+        );
+
+
+
+        if(selected){
+
+
+            answers.push({
+
+                question_id:question.id,
+
+                answer_id:Number(selected.value)
+
+            });
+
+
+        }
+
+
+        }
+
+    );
+
+
+
+    console.log(
+        "Отправляем:",
+        answers
+    );
+
+
+
+    const response =
+    await fetch(
+        `http://localhost:8000/attempts/${attemptId}/submit`,
+        {
+
+
+            method:"POST",
+
+
+            headers:{
+
+                "Content-Type":"application/json"
+
+            },
+
+
+            body:JSON.stringify({
+
+                answers:answers
+
+            })
+
+        }
+    );
+
+
+
+    const data =
+    await response.json();
+
+
+
+    console.log(
+        "Ответ сервера:",
+        data
+    );
+
+
+
+    showResult(data);
+
+
+
+}
+
+
+
+
+
+
+
+
+
+function showResult(data){
+
+
+
+    let html = `
+
+
+    <div class="result">
+
+
+    <h2>
+    Результат
+    </h2>
+
+
+    <h1>
+    ${data.score}/${data.total}
+    </h1>
+
+
+    `;
+
+
+
+    if(
+        data.wrong_answers &&
+        data.wrong_answers.length > 0
+    ){
+
+
+
+        html += `
+
+        <h2>
+       Ошибки:
+        </h2>
+
+        `;
+
+
+
+        data.wrong_answers.forEach(
+            item=>{
+
+
+            html += `
+
+
+            <div class="wrong">
+
+
+            <h3>
+            ❌ ${item.question}
+            </h3>
+
+
+            <p class="your">
+
+            Ваш ответ:
+            ${item.your_answer}
+
+            </p>
+
+
+
+            <p class="correct">
+
+            Правильный ответ:
+            ${item.correct_answer}
+
+            </p>
+
+
+
+            <p>
+
+            Объяснение:
+
+            <br>
+
+            ${item.explanation ?? "Нет объяснения"}
+
+            </p>
+
+
+            </div>
+
+
+            `;
+
+
+            }
+
+        );
+
+
+
+    }
+
+    else {
+
+
+        html += `
+
+
+        <h2>
+        🎉 Все ответы правильные!
+        </h2>
+
+
+        `;
+
+
+    }
+
+
+
+    html += `
+
+    </div>
+
+    `;
+
+
+
+    document
+    .getElementById("result")
+    .innerHTML = html;
+
+
+}
+
+
+</script>
+
+
+</body>
+
+</html>

@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+    <title>MAX Study</title>
+
+
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 15px;
+        }
+
+
+        input {
+
+            width: 90%;
+            padding: 8px;
+            margin: 5px;
+
+        }
+
+
+        button {
+
+            padding: 10px 15px;
+            margin: 5px;
+            cursor: pointer;
+
+        }
+
+
+        .question {
+
+            border: 1px solid #ddd;
+            border-radius: 12px;
+
+            padding: 20px;
+            margin-bottom: 20px;
+
+        }
+
+
+        .answer {
+
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            margin: 10px 0;
+            padding: 8px;
+
+            border-radius: 8px;
+
+        }
+
+
+        .selected-answer {
+
+            background: #d9ffd9;
+
+        }
+
+
+        .correct-answer {
+
+            display: flex;
+            align-items: center;
+            gap: 5px;
+
+            white-space: nowrap;
+
+        }
+
+
+        .correct-answer input {
+
+            width: auto;
+
+        }
+
+
+        .delete {
+
+            background: #ffd6d6;
+
+        }
+
+
+        .save {
+
+            background: #caffca;
+
+        }
+
+
+        .result {
+
+            margin-top: 30px;
+
+            padding: 20px;
+
+            border-radius: 12px;
+
+            background: #eeeeee;
+
+        }
+
+
+        .code {
+
+            font-size: 40px;
+
+            font-weight: bold;
+
+            letter-spacing: 5px;
+
+        }
+
+
+    </style>
+
+
+</head>
+
+
+<body>
+
+
+<h1>
+MAX Study
+</h1>
+
+
+<h2>
+Создание теста
+</h2>
+
+
+
+<label>
+Тема:
+</label>
+
+
+<br>
+
+
+<input
+        id="topic"
+        placeholder="Например: Фотосинтез"
+>
+
+
+<br>
+
+
+<label>
+Количество вопросов:
+</label>
+
+
+<br>
+
+
+<input
+        id="count"
+        type="number"
+        value="5"
+>
+
+
+<br>
+
+
+<button onclick="generateTest()">
+
+    Сгенерировать
+
+</button>
+
+
+
+<hr>
+
+
+
+<div id="editor"></div>
+
+
+
+<button
+        id="addQuestionButton"
+        style="display:none"
+        onclick="addQuestion()"
+>
+
+    + Добавить вопрос
+
+</button>
+
+
+
+<button
+        id="saveButton"
+        class="save"
+        style="display:none"
+        onclick="saveTest()"
+>
+
+    Опубликовать тест
+
+</button>
+
+
+
+<div id="testResult"></div>
+
+
+
+<script>
+
+
+let generatedTest = null;
+
+
+
+
+
+async function generateTest(){
+
+
+    const topic =
+        document
+        .getElementById("topic")
+        .value;
+
+
+
+    const count =
+        Number(
+            document
+            .getElementById("count")
+            .value
+        );
+
+
+
+    const response =
+        await fetch(
+            "http://localhost:8000/generate-test",
+            {
+
+                method:"POST",
+
+                headers:{
+                    "Content-Type":"application/json"
+                },
+
+
+                body:JSON.stringify({
+
+                    mode:"topic",
+
+                    topic:topic,
+
+                    question_count:count
+
+                })
+
+            }
+        );
+
+
+
+    generatedTest =
+        await response.json();
+
+
+
+    renderEditor();
+
+
+
+    document
+    .getElementById("saveButton")
+    .style.display="block";
+
+
+    document
+    .getElementById("addQuestionButton")
+    .style.display="block";
+
+
+}
+
+
+
+
+
+
+
+function renderEditor(){
+
+
+    const editor =
+        document.getElementById("editor");
+
+
+    editor.innerHTML = "";
+
+
+
+    editor.innerHTML += `
+
+        <h2>
+        ${generatedTest.title}
+        </h2>
+
+    `;
+
+
+
+    generatedTest.questions.forEach(
+        (question,index)=>{
+
+
+        let html = `
+
+
+        <div class="question">
+
+
+        <h3>
+        Вопрос ${index+1}
+        </h3>
+
+
+
+        <button
+        class="delete"
+        onclick="deleteQuestion(${index})"
+        >
+
+        Удалить вопрос
+
+        </button>
+
+
+
+        <br>
+
+
+
+        <input
+
+        value="${question.text}"
+
+        onchange="
+        updateQuestionText(
+            ${index},
+            this.value
+        )
+        "
+
+        >
+
+
+
+        <h4>
+        Ответы:
+        </h4>
+
+
+
+        `;
+
+
+
+        question.answers.forEach(
+            (answer,answerIndex)=>{
+
+
+            html += `
+
+
+            <div class="answer
+            ${answer.is_correct ? "selected-answer":""}
+            ">
+
+
+
+            <input
+
+            value="${answer.text}"
+
+            onchange="
+            updateAnswerText(
+                ${index},
+                ${answerIndex},
+                this.value
+            )
+            "
+
+            >
+
+
+
+            <label class="correct-answer">
+
+
+            <input
+
+            type="radio"
+
+            name="correct_${index}"
+
+            ${answer.is_correct ? "checked":""}
+
+
+            onchange="
+            updateCorrect(
+                ${index},
+                ${answerIndex}
+            )
+            "
+
+            >
+
+
+            правильный
+
+
+            </label>
+
+
+
+            <button
+
+            class="delete"
+
+            onclick="
+            deleteAnswer(
+                ${index},
+                ${answerIndex}
+            )
+            "
+
+            >
+
+            Удалить
+
+            </button>
+
+
+
+            </div>
+
+
+            `;
+
+
+            }
+
+        );
+
+
+
+        html += `
+
+
+        <button onclick="addAnswer(${index})">
+
+        + Добавить ответ
+
+        </button>
+
+
+
+        </div>
+
+
+        `;
+
+
+
+        editor.innerHTML += html;
+
+
+        }
+
+    );
+
+
+}
+
+
+
+
+
+
+
+
+function updateQuestionText(
+    questionIndex,
+    value
+){
+
+
+    generatedTest
+    .questions[questionIndex]
+    .text=value;
+
+
+}
+
+
+
+
+
+
+
+function updateAnswerText(
+    questionIndex,
+    answerIndex,
+    value
+){
+
+
+    generatedTest
+    .questions[questionIndex]
+    .answers[answerIndex]
+    .text=value;
+
+
+}
+
+
+
+
+
+
+
+function updateCorrect(
+    questionIndex,
+    answerIndex
+){
+
+
+    generatedTest
+    .questions[questionIndex]
+    .answers
+    .forEach(
+        answer=>{
+
+            answer.is_correct=false;
+
+        }
+    );
+
+
+
+    generatedTest
+    .questions[questionIndex]
+    .answers[answerIndex]
+    .is_correct=true;
+
+
+
+    renderEditor();
+
+
+}
+
+
+
+
+
+
+
+function addQuestion(){
+
+
+    generatedTest.questions.push({
+
+        text:"Новый вопрос",
+
+        explanation:"",
+
+        answers:[
+
+            {
+                text:"Вариант 1",
+                is_correct:true
+            },
+
+            {
+                text:"Вариант 2",
+                is_correct:false
+            }
+
+        ]
+
+    });
+
+
+
+    renderEditor();
+
+
+}
+
+
+
+
+
+
+
+function deleteQuestion(index){
+
+
+    generatedTest.questions.splice(
+        index,
+        1
+    );
+
+
+    renderEditor();
+
+
+}
+
+
+
+
+
+
+
+function addAnswer(questionIndex){
+
+
+    generatedTest
+    .questions[questionIndex]
+    .answers.push({
+
+        text:"Новый ответ",
+
+        is_correct:false
+
+    });
+
+
+
+    renderEditor();
+
+
+}
+
+
+
+
+
+
+
+function deleteAnswer(
+    questionIndex,
+    answerIndex
+){
+
+
+    generatedTest
+    .questions[questionIndex]
+    .answers.splice(
+        answerIndex,
+        1
+    );
+
+
+    renderEditor();
+
+
+}
+
+
+
+
+
+
+
+
+async function saveTest(){
+
+
+    const response =
+    await fetch(
+        "http://localhost:8000/tests/save",
+        {
+
+
+            method:"POST",
+
+
+            headers:{
+
+                "Content-Type":"application/json"
+
+            },
+
+
+            body:JSON.stringify({
+
+                title:
+                generatedTest.title,
+
+
+                creator_id:1,
+
+
+                questions:
+                generatedTest.questions
+
+
+            })
+
+
+        }
+    );
+
+
+
+    const result =
+        await response.json();
+
+
+
+    document
+    .getElementById("testResult")
+    .innerHTML = `
+
+
+    <div class="result">
+
+
+        <h2>
+        ✅ Тест опубликован
+        </h2>
+
+
+        <p>
+        Код для учеников:
+        </p>
+
+
+        <div class="code">
+
+        ${result.code}
+
+        </div>
+
+
+        <p>
+        Скопируйте этот код и отправьте ученикам
+        </p>
+
+
+    </div>
+
+
+    `;
+
+
+}
+
+
+
+</script>
+
+
+</body>
+
+</html>
