@@ -6,4 +6,4 @@ router = Router()
 
 @router.message_created(F.message.body.text)
 async def text_handler(event: MessageCreated):
-    await event.message.answer(f"Получил: {event.message.body.text}")
+    await event.message.answer(f"Получил клевый текст: {event.message.body.text}")
