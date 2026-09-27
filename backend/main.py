@@ -2,22 +2,15 @@ from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from backend.database import SessionLocal, engine, Base
 from backend import models
-
 import random
 import string
-
-
-from backend.models import (
-    StudentAnswer,
-    Test,
-    Question,
-    AnswerOption,
-    User
-)
-
-
+from backend.models import (StudentAnswer, Test, Question, AnswerOption, User)
+from fastapi.responses import FileResponse
+from fastapi import FastAPI, Depends
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from backend.schemas import (
-    TestCreate,
+TestCreate,
     TestResponse,
 
     QuestionCreate,
@@ -85,7 +78,26 @@ app = FastAPI(
     title="MAX Study"
 )
 
+app.mount(
+    "/static",
+    StaticFiles(directory="frontend"),
+    name="static"
+)
 
+
+@app.get("/")
+def index():
+    return FileResponse("frontend/index.html")
+
+
+@app.get("/teacher.html")
+def teacher():
+    return FileResponse("frontend/teacher.html")
+
+
+@app.get("/student.html")
+def student():
+    return FileResponse("frontend/student.html")
 
 
 
@@ -193,6 +205,10 @@ def create_question(test_id: int, question: QuestionCreate, db: Session = Depend
 
     return new_question
 
+
+@app.get("/")
+def index():
+    return FileResponse("index.html")
 
 @app.post("/questions/{question_id}/answers", response_model=AnswerOptionResponse)
 def create_answer(question_id: int, answer: AnswerOptionCreate, db: Session = Depends(get_db)):
