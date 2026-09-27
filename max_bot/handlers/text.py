@@ -1,15 +1,9 @@
-from maxapi import Router
-
+from maxapi import F, Router
+from maxapi.types import MessageCreated
 
 router = Router()
 
 
-@router.message_created()
-async def text_handler(event):
-
-    text = event.message.body.text
-
-    await event.bot.send_message(
-        chat_id=event.message.recipient.chat_id,
-        text=f"Получил: {text}"
-    )
+@router.message_created(F.message.body.text)
+async def text_handler(event: MessageCreated):
+    await event.message.answer(f"Получил: {event.message.body.text}")

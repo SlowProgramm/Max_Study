@@ -17,77 +17,37 @@ from backend.database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(
-        Integer,
-        primary_key=True
-    )
+    id = Column(Integer, primary_key=True)
 
-    max_id = Column(
-        BigInteger,
-        unique=True,
-        nullable=False
-    )
+    max_id = Column(BigInteger, unique=True, nullable=False)
 
+    username = Column(String, nullable=False)
 
-    username = Column(
-        String,
-        nullable=False
-    )
 
 # Варианты ответов
 class AnswerOption(Base):
-
     __tablename__ = "answer_options"
-
-
-    id = Column(
-        Integer,
-        primary_key=True
-    )
-
-
-    question_id = Column(
-        Integer,
-        ForeignKey("questions.id"),
-        nullable=False
-    )
-
-
-    text = Column(
-        String,
-        nullable=False
-    )
-
-
-    is_correct = Column(
-        Boolean,
-        default=False
-    )
-
-
+    id = Column(Integer, primary_key=True)
+    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False)
+    text = Column(String, nullable=False)
+    is_correct = Column(Boolean, default=False)
     question = relationship(
         "Question",
         back_populates="answers"
     )
 
+
 # Попытка прохождения теста
 class TestAttempt(Base):
-
     __tablename__ = "test_attempts"
 
-
-    id = Column(
-        Integer,
-        primary_key=True
-    )
-
+    id = Column(Integer, primary_key=True)
 
     test_id = Column(
         Integer,
         ForeignKey("tests.id"),
         nullable=False
     )
-
 
     student_id = Column(
         Integer,
@@ -95,59 +55,41 @@ class TestAttempt(Base):
         nullable=False
     )
 
+    score = Column(Integer)
 
-    start_at = Column(
-        DateTime
+
+    test = relationship(
+        "Test"
+    )
+
+    student = relationship(
+        "User"
+    )
+
+    answers = relationship(
+        "StudentAnswer"
     )
 
 
-    end_at = Column(
-        DateTime
-    )
-
-
-    score = Column(
-        Integer
-    )
-
+# Тест
 class Test(Base):
-
     __tablename__ = "tests"
-
-
-    id = Column(
-        Integer,
-        primary_key=True
-    )
-
-
-    creator_id = Column(
-        Integer,
-        ForeignKey("users.id")
-    )
-
-
+    id = Column(Integer, primary_key=True)
+    creator_id = Column(Integer, ForeignKey("users.id"))
     title = Column(String)
-
     description = Column(Text)
-
     access_code = Column(String)
-
-
     questions = relationship(
         "Question",
         back_populates="test"
     )
-class Question(Base):
 
+
+# Вопросы
+class Question(Base):
     __tablename__ = "questions"
 
-
-    id = Column(
-        Integer,
-        primary_key=True
-    )
-
+    id = Column(Integer, primary_key=True)
 
     test_id = Column(
         Integer,
@@ -155,25 +97,54 @@ class Question(Base):
         nullable=False
     )
 
+    text = Column(Text, nullable=False)
 
-    text = Column(
-        Text,
-        nullable=False
-    )
+    explanation = Column(Text)
 
-
-    order_number = Column(
-        Integer
-    )
-
+    order_number = Column(Integer)
 
     test = relationship(
         "Test",
         back_populates="questions"
     )
 
-
     answers = relationship(
         "AnswerOption",
         back_populates="question"
+    )
+
+class StudentAnswer(Base):
+    __tablename__ = "student_answers"
+
+    id = Column(Integer, primary_key=True)
+
+    attempt_id = Column(
+        Integer,
+        ForeignKey("test_attempts.id"),
+        nullable=False
+    )
+
+    question_id = Column(
+        Integer,
+        ForeignKey("questions.id"),
+        nullable=False
+    )
+
+    answer_id = Column(
+        Integer,
+        ForeignKey("answer_options.id"),
+        nullable=False
+    )
+
+
+    attempt = relationship(
+        "TestAttempt"
+    )
+
+    question = relationship(
+        "Question"
+    )
+
+    answer = relationship(
+        "AnswerOption"
     )

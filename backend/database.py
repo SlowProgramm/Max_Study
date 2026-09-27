@@ -1,9 +1,10 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+import os
 
-
-DATABASE_URL = (
-    "postgresql://admin:admin@localhost:5432/max_study"
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://admin:admin@localhost:5432/max_study",
 )
 
 

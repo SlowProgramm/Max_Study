@@ -1,25 +1,24 @@
-from max_bot.keyboards.app_keyboard import get_app_keyboard
-from maxapi import Router
+import logging
 
+from maxapi import Router
+from maxapi.filters.command import CommandStart
+from maxapi.types import MessageCreated
+from max_bot.keyboards.app_keyboard import get_app_keyboard
 
 router = Router()
 
 
-@router.message_created()
-async def start_handler(event):
+@router.message_created(CommandStart())
+async def start_handler(event: MessageCreated):
 
-    if event.message.body.text == "/start":
-        print("Start написали")
-        keyboard = get_app_keyboard(
-            event.bot.me.user_id
-        )
+    logging.info("Получена команда /start от %s", event.message.sender.user_id)
 
-        print(keyboard.pack())
+    keyboard = get_app_keyboard(
+        bot_username=event.bot.me.username,
+        bot_id=event.bot.me.user_id,
+    )
 
-        await event.bot.send_message(
-            chat_id=event.message.recipient.chat_id,
-            text="Добро пожаловать в MAX Study",
-            attachments=[
-                keyboard.pack()
-            ]
-        )
+    await event.message.answer(
+        text="Добро пожаловать в MAX Study!",
+        attachments=[keyboard.pack()],
+    )
