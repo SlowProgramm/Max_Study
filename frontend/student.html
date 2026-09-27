@@ -190,7 +190,7 @@ async function loadTest(){
 
     const response =
     await fetch(
-        `http://localhost:8000/tests/code/${code}`
+        `http://tests/code/${code}`
     );
 
 
@@ -217,7 +217,7 @@ async function loadTest(){
 
     const start =
     await fetch(
-        `http://localhost:8000/tests/${code}/start`,
+        `http://tests/${code}/start`,
         {
             method:"POST"
         }
@@ -402,7 +402,7 @@ async function submitTest(){
 
     const response =
     await fetch(
-        `http://localhost:8000/attempts/${attemptId}/submit`,
+        `http://attempts/${attemptId}/submit`,
         {
 
 

@@ -258,8 +258,7 @@ async function generateTest(){
 
 
     const response =
-        await fetch(
-            "http://localhost:8000/generate-test",
+        await fetch("/generate-test",
             {
 
                 method:"POST",
@@ -704,7 +703,7 @@ async function saveTest(){
 
     const response =
     await fetch(
-        "http://localhost:8000/tests/save",
+        "http://tests/save",
         {
 
 
