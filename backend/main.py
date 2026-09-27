@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends
 from fastapi import UploadFile, File, HTTPException
 import fitz  # pymupdf
+from typing import Literal, Optional
 from backend.gigachat_services import (
     generate_quiz_by_topic,
     generate_quiz_by_text,
