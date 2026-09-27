@@ -1,21 +1,9 @@
 from fastapi import FastAPI, Depends
-from fastapi import UploadFile, File, HTTPException
-import fitz  # pymupdf
-from typing import Literal, Optional
-from backend.gigachat_services import (
-    generate_quiz_by_topic,
-    generate_quiz_by_text,
-    create_custom_quiz,
-    generate_notes_by_topic,       # ← новое
-    generate_notes_by_text,        # ← новое
-)
-
-import fitz  # pymupdf
-from fastapi import UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from backend.database import SessionLocal, engine, Base
 from backend import models
 import random
+
 import string
 from backend.models import (StudentAnswer, Test, Question, AnswerOption, User)
 from fastapi.responses import FileResponse
@@ -245,13 +233,6 @@ def create_answer(question_id: int, answer: AnswerOptionCreate, db: Session = De
 
     return new_answer
 
-@app.get("/smart_notes.html")
-def smart_notes():
-    return FileResponse("frontend/smart_notes.html")
-
-@app.get("/test_page")
-def test_page():
-    return FileResponse("frontend/test_page.html")
 
 @app.get("/tests/code/{code}", response_model=TestPublic)
 def get_test_by_code(code: str, db: Session = Depends(get_db)):
@@ -565,56 +546,3 @@ def auth_user(
 
 
 
-#Конспект
-
-class NotesRequest(BaseModel):
-    mode: Literal["topic", "text"]
-    topic: Optional[str] = None
-    content: Optional[str] = None
-
-
-@app.post("/generate-notes")
-def generate_notes(data: NotesRequest):
-    if data.mode == "topic":
-        if not data.topic:
-            raise HTTPException(400, "Тема не указана")
-        notes = generate_notes_by_topic(data.topic)
-
-    elif data.mode == "text":
-        if not data.content:
-            raise HTTPException(400, "Текст не указан")
-        notes = generate_notes_by_text(data.content)
-
-    else:
-        raise HTTPException(400, "Неизвестный режим")
-
-    return {"notes": notes}
-
-
-@app.post("/generate-notes-from-file")
-async def generate_notes_from_file(file: UploadFile = File(...)):
-    content = await file.read()
-    name = (file.filename or "").lower()
-
-    if name.endswith(".pdf"):
-        try:
-            doc = fitz.open(stream=content, filetype="pdf")
-            text = "\n".join(page.get_text() for page in doc)
-            doc.close()
-        except Exception:
-            raise HTTPException(400, "Не удалось прочитать PDF")
-
-    elif name.endswith(".txt"):
-        try:
-            text = content.decode("utf-8")
-        except UnicodeDecodeError:
-            text = content.decode("cp1251", errors="ignore")
-
-    else:
-        raise HTTPException(400, "Поддерживаются только .txt и .pdf")
-
-    if not text.strip():
-        raise HTTPException(400, "Файл пустой или это скан (текст не извлекается)")
-
-    notes = generate_notes_by_text(text)
-    return {"notes": notes}
