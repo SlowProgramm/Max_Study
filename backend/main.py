@@ -42,38 +42,6 @@ from sqlalchemy.orm import joinedload
 
 from pydantic import BaseModel
 
-from backend.gigachat_services import (
-    generate_quiz_by_topic,
-    generate_quiz_by_text,
-    create_custom_quiz,
-)
-
-from typing import Literal, Optional
-
-
-
-
-
-class GenerateTestRequest(BaseModel):
-
-    mode: Literal[
-        "topic",
-        "text",
-        "custom"
-    ]
-
-    topic: Optional[str] = None
-
-    content: Optional[str] = None
-
-    question_count: int = 5
-
-    questions: Optional[list] = None
-
-
-
-
-
 
 app = FastAPI(
     title="MAX Study"
@@ -257,40 +225,6 @@ def get_test_by_code(code: str, db: Session = Depends(get_db)):
     return test
 
 
-@app.post(
-    "/generate-test",
-    response_model=GeneratedTestResponse
-)
-def generate_test(data: GenerateTestRequest):
-
-    if data.mode == "topic":
-
-        result = generate_quiz_by_topic(
-            data.topic,
-            data.question_count
-        )
-
-    elif data.mode == "text":
-
-        result = generate_quiz_by_text(
-            data.content,
-            data.question_count
-        )
-
-    elif data.mode == "custom":
-
-        result = create_custom_quiz(
-            data.questions
-        )
-
-    else:
-
-        return {
-            "error": "Неизвестный режим"
-        }
-
-
-    return result
 
 @app.post("/tests/save")
 def save_test(data: SaveTestRequest, db: Session = Depends(get_db)):
