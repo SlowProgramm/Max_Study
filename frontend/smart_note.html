@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Умный конспект — MAX Study</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 32px 16px 80px;
+            background: #f5f7fa;
+            color: #222;
+        }
+        h1 { margin-bottom: 8px; }
+        .subtitle { color: #666; margin-bottom: 24px; }
+
+        /* ── Выбор источника ───────────────────── */
+        .source-options {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .source-option {
+            flex: 1;
+            min-width: 200px;
+            padding: 14px 18px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 15px;
+            text-align: left;
+            transition: all 0.15s;
+        }
+        .source-option:hover { border-color: #b8cfff; }
+        .source-option.active {
+            border-color: #4c8bf5;
+            background: #eaf1ff;
+            color: #1a4bbd;
+            font-weight: 600;
+        }
+        .source-option .label { display: block; }
+        .source-option .hint {
+            display: block;
+            font-weight: 400;
+            font-size: 13px;
+            color: #777;
+            margin-top: 4px;
+        }
+        .source-option.active .hint { color: #4c8bf5; }
+
+        /* ── Поля ввода ────────────────────────── */
+        .field {
+            margin-top: 20px;
+            display: none;
+        }
+        .field.visible { display: block; }
+
+        label { font-weight: 500; display: block; margin-bottom: 8px; }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            font-size: 15px;
+            font-family: inherit;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        textarea { min-height: 160px; resize: vertical; }
+
+        input[type="file"] {
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            border: 1px dashed #bbb;
+            width: 100%;
+        }
+        .file-name {
+            margin-top: 8px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        /* ── Кнопка ───────────────────────────── */
+        .generate-btn {
+            margin-top: 24px;
+            padding: 14px 28px;
+            font-size: 17px;
+            border: none;
+            border-radius: 10px;
+            background: #4c8bf5;
+            color: white;
+            cursor: pointer;
+            width: 100%;
+        }
+        .generate-btn:disabled { background: #a0bff0; cursor: not-allowed; }
+
+        #status { margin-top: 16px; color: #666; }
+
+        /* ── Результат ─────────────────────────── */
+        #result { margin-top: 32px; display: none; }
+        #result.visible { display: block; }
+
+        .notes-box {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            line-height: 1.6;
+            font-size: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        .notes-box h2 { margin: 16px 0 8px; font-size: 20px; }
+        .notes-box h3 { margin: 12px 0 6px; font-size: 17px; }
+        .notes-box ul, .notes-box ol { margin-left: 22px; margin-bottom: 10px; }
+
+        .test-btn {
+            padding: 14px 28px;
+            font-size: 17px;
+            border: none;
+            border-radius: 10px;
+            background: #34c759;
+            color: white;
+            cursor: pointer;
+            width: 100%;
+        }
+        .test-btn:hover { background: #2aa84a; }
+
+        .back {
+            display: inline-block;
+            margin-bottom: 16px;
+            color: #4c8bf5;
+            text-decoration: none;
+        }
+        .back:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <a class="back" href="/student_page">← Назад</a>
+
+    <h1>Умный конспект</h1>
+    <p class="subtitle">Выберите, на основе чего сделать конспект</p>
+
+    <!-- ── Выбор источника ───────────────────── -->
+    <div class="source-options">
+        <button class="source-option active" data-source="topic">
+            <span class="label">По теме</span>
+            <span class="hint">Введу название темы</span>
+        </button>
+        <button class="source-option" data-source="text">
+            <span class="label">По тексту</span>
+            <span class="hint">Вставлю текст вручную</span>
+        </button>
+        <button class="source-option" data-source="file">
+            <span class="label">По файлу</span>
+            <span class="hint">Загружу .txt или .pdf</span>
+        </button>
+    </div>
+
+    <!-- ── Поле: тема ────────────────────────── -->
+    <div class="field visible" id="field-topic">
+        <label>Тема конспекта</label>
+        <input type="text" id="topic-input"
+               placeholder="Например: Фотосинтез, Вторая мировая война, SQL JOIN'ы">
+    </div>
+
+    <!-- ── Поле: текст ───────────────────────── -->
+    <div class="field" id="field-text">
+        <label>Вставьте текст</label>
+        <textarea id="text-input"
+                  placeholder="Вставьте сюда текст, на основе которого нужно сделать конспект"></textarea>
+    </div>
+
+    <!-- ── Поле: файл ────────────────────────── -->
+    <div class="field" id="field-file">
+        <label>Прикрепите файл</label>
+        <input type="file" id="file-input" accept=".txt,.pdf">
+        <p class="file-name" id="file-name"></p>
+    </div>
+
+    <button class="generate-btn" id="generate-btn">Создать конспект</button>
+    <p id="status"></p>
+
+    <div id="result">
+        <h2>Конспект</h2>
+        <div class="notes-box" id="notes-content"></div>
+        <button class="test-btn" id="test-btn">Пройти тест для закрепления</button>
+    </div>
+
+    <script>
+        let currentSource = "topic";
+        let currentTopic = "";
+
+        // ── Переключение источника ─────────────
+        document.querySelectorAll(".source-option").forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll(".source-option").forEach(b => b.classList.remove("active"));
+                document.querySelectorAll(".field").forEach(f => f.classList.remove("visible"));
+
+                btn.classList.add("active");
+                currentSource = btn.dataset.source;
+                document.getElementById("field-" + currentSource).classList.add("visible");
+                document.getElementById("status").textContent = "";
+            };
+        });
+
+        // Показ имени выбранного файла
+        document.getElementById("file-input").onchange = (e) => {
+            const name = e.target.files[0]?.name || "";
+            document.getElementById("file-name").textContent = name;
+        };
+
+        // ── Генерация ──────────────────────────
+        const btn = document.getElementById("generate-btn");
+        const status = document.getElementById("status");
+        const result = document.getElementById("result");
+        const notesContent = document.getElementById("notes-content");
+
+        btn.onclick = async () => {
+            status.textContent = "";
+            result.classList.remove("visible");
+
+            if (currentSource === "topic") {
+                const topic = document.getElementById("topic-input").value.trim();
+                if (!topic) return (status.textContent = "Введите тему");
+                currentTopic = topic;
+
+                await callJson("/generate-notes", {
+                    mode: "topic",
+                    topic: topic
+                });
+
+            } else if (currentSource === "text") {
+                const text = document.getElementById("text-input").value.trim();
+                if (!text) return (status.textContent = "Вставьте текст");
+                currentTopic = text.slice(0, 60);
+
+                await callJson("/generate-notes", {
+                    mode: "text",
+                    content: text
+                });
+
+            } else if (currentSource === "file") {
+                const file = document.getElementById("file-input").files[0];
+                if (!file) return (status.textContent = "Выберите файл");
+                currentTopic = file.name;
+
+                await callFile(file);
+            }
+        };
+
+        async function callJson(url, payload) {
+            btn.disabled = true;
+            status.textContent = "Генерирую конспект...";
+
+            try {
+                const res = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                showNotes(data.notes || "");
+            } catch (e) {
+                status.textContent = "Ошибка: " + e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function callFile(file) {
+            btn.disabled = true;
+            status.textContent = "Генерирую конспект из файла...";
+
+            try {
+                const form = new FormData();
+                form.append("file", file);
+
+                const res = await fetch("/generate-notes-from-file", {
+                    method: "POST",
+                    body: form
+                });
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                showNotes(data.notes || "");
+            } catch (e) {
+                status.textContent = "Ошибка: " + e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function showNotes(text) {
+            status.textContent = "";
+            notesContent.innerHTML = simpleMarkdown(text);
+            result.classList.add("visible");
+            result.scrollIntoView({ behavior: "smooth" });
+        }
+
+        function simpleMarkdown(md) {
+            return md
+                .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+                .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+                .replace(/^# (.+)$/gm, "<h2>$1</h2>")
+                .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+                .replace(/^- (.+)$/gm, "<li>$1</li>")
+                .replace(/(<li>.*<\/li>)/s, "<ul>$1</ul>")
+                .replace(/\n{2,}/g, "<br><br>");
+        }
+
+        // ── Переход к тесту ────────────────────
+        document.getElementById("test-btn").onclick = () => {
+            const params = new URLSearchParams({ topic: currentTopic });
+            location.href = "/test_page?" + params.toString();
+        };
+    </script>
+</body>
+</html>

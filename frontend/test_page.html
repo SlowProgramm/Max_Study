@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Тест — MAX Study</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 16px; }
+        h1 { margin-bottom: 16px; }
+        .topic { color: #4c8bf5; font-weight: 600; margin-bottom: 24px; }
+        .placeholder { padding: 24px; background: #f5f7fa; border-radius: 12px; text-align: center; color: #666; }
+        a.back { display: inline-block; margin-top: 24px; color: #4c8bf5; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <h1>Тест для закрепления</h1>
+    <p class="topic" id="topic"></p>
+    <div class="placeholder">Здесь будет тест по теме. Логика ещё не реализована.</div>
+    <a class="back" href="/smart_notes.html">← Создать другой конспект</a>
+
+    <script>
+        const topic = new URLSearchParams(location.search).get("topic") || "(тема не указана)";
+        document.getElementById("topic").textContent = "Тема: " + topic;
+        // Позже: вызвать /generate-test с mode=topic и topic=topic
+    </script>
+</body>
+</html>
