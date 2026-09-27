@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 from backend.database import SessionLocal, engine, Base
 from backend import models
 import random
-from gigachat_services import build_notes_prompt_by_text, build_notes_prompt_by_topic
 import string
 from backend.models import (StudentAnswer, Test, Question, AnswerOption, User)
 from fastapi.responses import FileResponse
