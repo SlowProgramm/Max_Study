@@ -78,16 +78,21 @@ app = FastAPI(
     title="MAX Study"
 )
 
+
+
 app.mount(
     "/static",
     StaticFiles(directory="frontend"),
     name="static"
 )
 
+@app.get("/teacher_page")
+def teacher_page():
+    return FileResponse("frontend/teacher_page.html")
 
-@app.get("/")
-def index():
-    return FileResponse("frontend/index.html")
+@app.get("/student_page")
+def student_page():
+    return FileResponse("frontend/student_page.html")
 
 
 @app.get("/teacher.html")
@@ -157,6 +162,11 @@ def generate_code():
 
     )
 
+@app.get("/")
+def index():
+    return FileResponse("frontend/index.html")
+
+
 # Создать тест
 @app.post(
     "/tests",
@@ -206,9 +216,6 @@ def create_question(test_id: int, question: QuestionCreate, db: Session = Depend
     return new_question
 
 
-@app.get("/")
-def index():
-    return FileResponse("index.html")
 
 @app.post("/questions/{question_id}/answers", response_model=AnswerOptionResponse)
 def create_answer(question_id: int, answer: AnswerOptionCreate, db: Session = Depends(get_db)):
