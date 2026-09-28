@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Мой класс</title>
+    <script src="https://st.max.ru/js/max-web-app.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #222; }
+        h1 { margin-bottom: 8px; }
+        h2 { margin-top: 0; font-size: 18px; }
+        .row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+        input, select { flex: 1; min-width: 140px; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 6px; }
+        button { padding: 10px 16px; font-size: 16px; cursor: pointer; border: none; border-radius: 6px; background: #2563eb; color: #fff; }
+        button:hover { background: #1d4ed8; }
+        button.danger { background: #dc2626; }
+        button.danger:hover { background: #b91c1c; }
+        ul { list-style: none; padding: 0; margin: 0; }
+        li { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
+        li:last-child { border-bottom: none; }
+        .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+        .muted { color: #6b7280; font-size: 14px; }
+        .msg { padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; display: none; }
+        .msg.ok  { display: block; background: #dcfce7; color: #166534; }
+        .msg.err { display: block; background: #fee2e2; color: #991b1b; }
+        .empty { color: #6b7280; font-style: italic; padding: 8px 0; }
+    </style>
+</head>
+<body>
+    <h1>Мой класс</h1>
+    <p class="muted">Ученики и классы, которые вы ведёте.</p>
+
+    <div id="msg" class="msg"></div>
+
+    <div class="card">
+        <h2>Создать класс</h2>
+        <div class="row">
+            <input id="className" placeholder="Например, 10-А" />
+            <button onclick="createClass()">Создать</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Добавить ученика по MAX ID</h2>
+        <div class="row">
+            <input id="maxId" type="number" placeholder="MAX ID ученика" />
+            <select id="classSelect"></select>
+            <button onclick="addStudent()">Добавить</button>
+        </div>
+        <p class="muted">Ученик должен сначала написать боту команду <code>/myid</code>.</p>
+    </div>
+
+    <div id="classes"></div>
+
+    <script>
+        const API = "/api/class";
+
+        // MAX WebApp initData — то же, что вы используете в других страницах
+        const initData = window.WebApp?.initData || "";
+
+        const msgEl = document.getElementById("msg");
+
+        function showMsg(text, ok = true) {
+            msgEl.textContent = text;
+            msgEl.className = "msg " + (ok ? "ok" : "err");
+            setTimeout(() => { msgEl.className = "msg"; }, 4000);
+        }
+
+        async function api(path, opts = {}) {
+            const res = await fetch(`${API}${path}`, {
+                ...opts,
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Max-Init-Data": initData,
+                    ...(opts.headers || {}),
+                },
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                const detail = typeof data.detail === "string"
+                    ? data.detail
+                    : (data.detail?.message || `Ошибка ${res.status}`);
+                throw new Error(detail);
+            }
+            return data;
+        }
+
+        async function loadClasses() {
+            const classes = await api("/classes");
+            const container = document.getElementById("classes");
+            const select = document.getElementById("classSelect");
+
+            select.innerHTML = "";
+            if (classes.length === 0) {
+                const opt = document.createElement("option");
+                opt.textContent = "— нет классов —";
+                opt.value = "";
+                select.appendChild(opt);
+            } else {
+                for (const c of classes) {
+                    const opt = document.createElement("option");
+                    opt.value = c.id;
+                    opt.textContent = `${c.name} (${c.student_count})`;
+                    select.appendChild(opt);
+                }
+            }
+
+            container.innerHTML = "";
+            if (classes.length === 0) {
+                container.innerHTML = '<p class="empty">Пока нет ни одного класса.</p>';
+                return;
+            }
+
+            for (const c of classes) {
+                const students = await api(`/classes/${c.id}/students`);
+                const block = document.createElement("div");
+                block.className = "card";
+                block.innerHTML = `
+                    <h2>${escapeHtml(c.name)} <span class="muted">— ${students.length} чел.</span></h2>
+                    <ul>
+                        ${students.length === 0
+                            ? '<li class="empty">Нет учеников</li>'
+                            : students.map(s => `
+                                <li>
+                                    <span>${escapeHtml(s.username)} <span class="muted">(max_id: ${s.max_id})</span></span>
+                                    <button class="danger" onclick="removeStudent(${c.id}, ${s.id})">Удалить</button>
+                                </li>
+                            `).join("")
+                        }
+                    </ul>
+                `;
+                container.appendChild(block);
+            }
+        }
+
+        async function createClass() {
+            const input = document.getElementById("className");
+            const name = input.value.trim();
+            if (!name) return;
+            try {
+                await api("/classes", {
+                    method: "POST",
+                    body: JSON.stringify({ name }),
+                });
+                input.value = "";
+                showMsg("Класс создан");
+                loadClasses();
+            } catch (e) { showMsg(e.message, false); }
+        }
+
+        async function addStudent() {
+            const maxIdInput = document.getElementById("maxId");
+            const classSelect = document.getElementById("classSelect");
+            const max_id = parseInt(maxIdInput.value, 10);
+            const class_id = parseInt(classSelect.value, 10);
+
+            if (!max_id) return showMsg("Введите MAX ID", false);
+            if (!class_id) return showMsg("Сначала создайте класс", false);
+
+            try {
+                await api("/students", {
+                    method: "POST",
+                    body: JSON.stringify({ max_id, class_id }),
+                });
+                maxIdInput.value = "";
+                showMsg("Ученик добавлен");
+                loadClasses();
+            } catch (e) { showMsg(e.message, false); }
+        }
+
+        async function removeStudent(classId, studentId) {
+            if (!confirm("Удалить ученика из класса?")) return;
+            try {
+                await api(`/classes/${classId}/students/${studentId}`, { method: "DELETE" });
+                showMsg("Ученик удалён");
+                loadClasses();
+            } catch (e) { showMsg(e.message, false); }
+        }
+
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, ch => ({
+                "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+            }[ch]));
+        }
+
+        loadClasses();
+    </script>
+</body>
+</html>

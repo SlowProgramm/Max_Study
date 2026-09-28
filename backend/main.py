@@ -6,6 +6,15 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
 # from typing import Literal, Optional
+from backend.schemas import (
+    # ... ваши существующие импорты ...
+    StudentOut,
+    ClassOut,
+    CreateClassIn,
+    AddStudentIn,
+)
+from backend.models import Class, ClassMember
+from sqlalchemy import func
 import random
 import string
 import os
@@ -74,8 +83,10 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
+print("DATABASE_URL:", os.getenv("DATABASE_URL"))
+print("Tables before create_all:", list(Base.metadata.tables.keys()))
 Base.metadata.create_all(bind=engine)
-
+print("Tables after create_all:", list(Base.metadata.tables.keys()))
 
 # ─── Вспомогательные ────────────────────────────
 
@@ -487,3 +498,152 @@ def generate_test(data: GenerateTestRequest):
         return {"error": "Неизвестный режим"}
 
     return result
+
+
+
+@app.get("/api/class/classes", response_model=list[ClassOut])
+def list_classes(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    rows = (
+        db.query(
+            Class,
+            func.count(ClassMember.id).label("student_count"),
+        )
+        .outerjoin(ClassMember, ClassMember.class_id == Class.id)
+        .filter(Class.teacher_id == user.id)
+        .group_by(Class.id)
+        .order_by(Class.created_at.desc())
+        .all()
+    )
+    return [
+        ClassOut(id=c.id, name=c.name, student_count=cnt)
+        for c, cnt in rows
+    ]
+
+
+@app.post("/api/class/classes", response_model=ClassOut)
+def create_class(
+    data: CreateClassIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    name = data.name.strip()
+    if not name:
+        raise HTTPException(400, "Имя класса не может быть пустым")
+
+    cls = Class(name=name, teacher_id=user.id)
+    db.add(cls)
+    db.commit()
+    db.refresh(cls)
+    return ClassOut(id=cls.id, name=cls.name, student_count=0)
+
+
+@app.get("/api/class/classes/{class_id}/students", response_model=list[StudentOut])
+def list_class_students(
+    class_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    cls = (
+        db.query(Class)
+        .filter(Class.id == class_id, Class.teacher_id == user.id)
+        .first()
+    )
+    if not cls:
+        raise HTTPException(404, "Класс не найден")
+
+    return [m.student for m in cls.members]
+
+
+@app.get("/api/class/students", response_model=list[StudentOut])
+def list_all_students(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return (
+        db.query(User)
+        .join(ClassMember, ClassMember.student_id == User.id)
+        .join(Class, Class.id == ClassMember.class_id)
+        .filter(Class.teacher_id == user.id)
+        .distinct()
+        .all()
+    )
+
+
+@app.post("/api/class/students", response_model=StudentOut)
+def add_student(
+    data: AddStudentIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    cls = (
+        db.query(Class)
+        .filter(Class.id == data.class_id, Class.teacher_id == user.id)
+        .first()
+    )
+    if not cls:
+        raise HTTPException(404, "Класс не найден")
+
+    student = db.query(User).filter(User.max_id == data.max_id).first()
+    if not student:
+        raise HTTPException(
+            404,
+            "Пользователь с таким MAX ID не найден. "
+            "Пусть он сначала напишет боту команду /myid.",
+        )
+
+    if student.id == user.id:
+        raise HTTPException(400, "Нельзя добавить самого себя")
+
+    exists = (
+        db.query(ClassMember)
+        .filter(
+            ClassMember.class_id == cls.id,
+            ClassMember.student_id == student.id,
+        )
+        .first()
+    )
+    if exists:
+        raise HTTPException(400, "Ученик уже в этом классе")
+
+    db.add(ClassMember(class_id=cls.id, student_id=student.id))
+    db.commit()
+    return student
+
+
+@app.delete("/api/class/classes/{class_id}/students/{student_id}")
+def remove_student(
+    class_id: int,
+    student_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    cls = (
+        db.query(Class)
+        .filter(Class.id == class_id, Class.teacher_id == user.id)
+        .first()
+    )
+    if not cls:
+        raise HTTPException(404, "Класс не найден")
+
+    link = (
+        db.query(ClassMember)
+        .filter(
+            ClassMember.class_id == class_id,
+            ClassMember.student_id == student_id,
+        )
+        .first()
+    )
+    if not link:
+        raise HTTPException(404, "Ученик не в этом классе")
+
+    db.delete(link)
+    db.commit()
+    return {"ok": True}
+
+
+@app.get("/class_page")
+def class_page():
+    return FileResponse("frontend/class_page.html")

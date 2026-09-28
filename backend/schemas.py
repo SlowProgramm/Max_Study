@@ -330,3 +330,29 @@ class StartTestRequest(BaseModel):
     student_id: int
 
 
+
+class StudentOut(BaseModel):
+    id: int
+    max_id: int
+    username: str
+
+    class Config:
+        from_attributes = True
+
+
+class ClassOut(BaseModel):
+    id: int
+    name: str
+    student_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class CreateClassIn(BaseModel):
+    name: str
+
+
+class AddStudentIn(BaseModel):
+    max_id: int
+    class_id: int
