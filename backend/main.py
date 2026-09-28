@@ -7,11 +7,14 @@ import random
 import string
 from backend.models import (StudentAnswer, Test, Question, AnswerOption, User)
 from fastapi.responses import FileResponse
-from fastapi import FastAPI, Depends, UploadFile, File, HTTPException
+from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+import os
+from sqlalchemy.exc import IntegrityError
 import fitz  # pymupdf — для извлечения текста из PDF
 from backend.gigachat_services import generate_notes_by_topic, generate_notes_by_text
+from backend.max_auth import validate_init_data, display_name, InitDataError
 from backend.schemas import (
 TestCreate,
     TestResponse,
@@ -145,6 +148,73 @@ def generate_code():
 @app.get("/")
 def index():
     return FileResponse("frontend/index.html")
+
+
+# =========================
+# АВТОРИЗАЦИЯ ЧЕРЕЗ MAX
+# =========================
+# Личность берём ТОЛЬКО из проверенной подписи initData (токен бота = MAX_TOKEN),
+# а не из того, что прислал браузер. Фронтенд шлёт initData в заголовке
+# X-Max-Init-Data (или в теле для /auth/max).
+
+def get_or_create_user(db: Session, max_user: dict) -> User:
+    name = display_name(max_user)
+
+    user = db.query(User).filter(User.max_id == max_user["id"]).first()
+
+    if user is None:
+        try:
+            user = User(max_id=max_user["id"], username=name)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        except IntegrityError:
+            # Два параллельных первых запроса — второй споткнулся о unique(max_id).
+            db.rollback()
+            user = db.query(User).filter(User.max_id == max_user["id"]).first()
+    elif user.username != name:
+        user.username = name
+        db.commit()
+
+    return user
+
+
+def user_from_init_data(init_data: str | None, db: Session) -> User:
+    try:
+        data = validate_init_data(init_data or "", os.getenv("MAX_TOKEN", ""))
+    except InitDataError as e:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": e.code, "message": str(e)}
+        )
+
+    return get_or_create_user(db, data["user"])
+
+
+def get_current_user(
+    x_max_init_data: str | None = Header(default=None),
+    db: Session = Depends(get_db)
+) -> User:
+    return user_from_init_data(x_max_init_data, db)
+
+
+class MaxAuthRequest(BaseModel):
+    init_data: str
+
+
+@app.post("/auth/max", response_model=UserResponse)
+def auth_max(data: MaxAuthRequest, db: Session = Depends(get_db)):
+    return user_from_init_data(data.init_data, db)
+
+
+@app.get("/auth/me", response_model=UserResponse)
+def auth_me(user: User = Depends(get_current_user)):
+    return user
+
+
+@app.get("/debug_auth")
+def debug_auth_page():
+    return FileResponse("frontend/debug_auth.html")
 
 
 # =========================

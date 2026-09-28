@@ -6,7 +6,8 @@ from sqlalchemy import (
     Text,
     Boolean,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    UniqueConstraint
 )
 
 from sqlalchemy.orm import relationship
@@ -150,3 +151,34 @@ class StudentAnswer(Base):
     )
 
 
+# Класс учителя: какие ученики к какому учителю относятся.
+# Одна строка = «ученик student_id состоит в классе учителя teacher_id».
+# username здесь не дублируется — он берётся из users по student_id
+# (так он не устареет, если человек сменит имя в MAX).
+class ClassStudent(Base):
+    __tablename__ = "class_students"
+
+    id = Column(Integer, primary_key=True)
+
+    teacher_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True
+    )
+
+    student_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True
+    )
+
+    # Ученик не может быть добавлен к одному учителю дважды.
+    __table_args__ = (
+        UniqueConstraint("teacher_id", "student_id", name="uq_class_teacher_student"),
+    )
+
+    teacher = relationship("User", foreign_keys=[teacher_id])
+
+    student = relationship("User", foreign_keys=[student_id])

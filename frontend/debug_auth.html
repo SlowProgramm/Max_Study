@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Диагностика входа через MAX</title>
+    <script src="https://st.max.ru/js/max-web-app.js"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 640px; margin: 0 auto; padding: 20px 16px 60px; background: #f5f7fa; color: #222; }
+        h1 { font-size: 20px; margin-bottom: 4px; }
+        .sub { color: #666; font-size: 14px; margin-bottom: 16px; }
+        .row { background: #fff; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+        .row .t { font-weight: 600; font-size: 15px; }
+        .row .d { font-size: 13px; color: #555; margin-top: 4px; word-break: break-word; white-space: pre-wrap; }
+        .ok   { border-left: 5px solid #34c759; }
+        .fail { border-left: 5px solid #ff3b30; }
+        .warn { border-left: 5px solid #ff9500; }
+        .wait { border-left: 5px solid #bbb; }
+        button, a.btn { display: inline-block; margin: 8px 8px 0 0; padding: 10px 16px; font-size: 15px; border: none; border-radius: 8px; background: #4c8bf5; color: #fff; cursor: pointer; text-decoration: none; }
+        button.sec { background: #8e8e93; }
+        pre { background: #fff; border-radius: 10px; padding: 12px; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+    </style>
+</head>
+<body>
+    <h1>Диагностика входа через MAX</h1>
+    <p class="sub" id="step-label"></p>
+
+    <div id="rows"></div>
+
+    <a class="btn" id="go-step2" href="/debug_auth?step=2">Проверить переход на другую страницу</a>
+    <button class="sec" id="copy-btn">Скопировать отчёт</button>
+    <pre id="report"></pre>
+
+    <script>
+    const STORE_KEY = "max_init_data_backup";
+    const step = new URLSearchParams(location.search).get("step") || "1";
+    const rowsEl = document.getElementById("rows");
+    const report = [];
+
+    document.getElementById("step-label").textContent =
+        step === "2"
+            ? "Шаг 2: мы перешли на новую страницу через location.href — смотрим, что осталось"
+            : "Шаг 1: первая загрузка";
+    if (step === "2") document.getElementById("go-step2").textContent = "← Вернуться на шаг 1";
+    if (step === "2") document.getElementById("go-step2").href = "/debug_auth";
+
+    function row(state, title, details) {
+        const div = document.createElement("div");
+        div.className = "row " + state;
+        div.innerHTML = `<div class="t"></div><div class="d"></div>`;
+        div.children[0].textContent = ({ok:"✅ ", fail:"❌ ", warn:"⚠️ ", wait:"… "}[state]) + title;
+        div.children[1].textContent = details || "";
+        rowsEl.appendChild(div);
+        report.push(({ok:"[OK]", fail:"[FAIL]", warn:"[WARN]", wait:"[..]"}[state]) + " " + title + (details ? " — " + details : ""));
+        document.getElementById("report").textContent = "Шаг " + step + "\n" + report.join("\n");
+    }
+
+    function readBackup() { try { return sessionStorage.getItem(STORE_KEY) || ""; } catch (e) { return ""; } }
+    function writeBackup(v) { try { sessionStorage.setItem(STORE_KEY, v); return true; } catch (e) { return false; } }
+
+    (async function main() {
+        // 1. Загрузился ли мост
+        const app = window.WebApp;
+        if (!app) {
+            row("fail", "Мост MAX не загрузился (window.WebApp нет)",
+                "Либо страница открыта не из MAX, либо скрипт st.max.ru заблокирован.");
+        } else {
+            row("ok", "Мост MAX загружен", `platform=${app.platform}, version=${app.version}`);
+            try { app.ready(); } catch (e) {}
+        }
+
+        // 2. Есть ли initData прямо сейчас
+        const nativeInit = (app && app.initData) || "";
+        const backupInit = readBackup();
+
+        if (nativeInit) {
+            row("ok", "window.WebApp.initData есть", `длина ${nativeInit.length}, начало: ${nativeInit.slice(0, 40)}…`);
+            const saved = writeBackup(nativeInit);
+            row(saved ? "ok" : "warn", saved ? "Копия initData сохранена в sessionStorage" : "sessionStorage недоступен — копию сохранить нельзя");
+        } else {
+            row("fail", "window.WebApp.initData ПУСТОЙ",
+                step === "2"
+                    ? "Мост не отдаёт initData после перехода на другую страницу — значит, нужна копия из sessionStorage (см. ниже)."
+                    : "Открыто вне MAX или MAX не передал данные запуска.");
+        }
+
+        // 3. Что видно в initDataUnsafe (только для показа, доверять нельзя)
+        const unsafeUser = app && app.initDataUnsafe && app.initDataUnsafe.user;
+        if (unsafeUser) {
+            row("ok", "initDataUnsafe.user виден",
+                `id=${unsafeUser.id}, username=${unsafeUser.username}, first_name=${unsafeUser.first_name}\n(только для показа: серверу это доверять нельзя)`);
+        } else {
+            row("warn", "initDataUnsafe.user пуст");
+        }
+
+        const startParam = app && app.initDataUnsafe && app.initDataUnsafe.start_param;
+        row("wait", "start_param (payload кнопки бота)", startParam ? String(startParam) : "не передан (это нормально, если открыли не кнопкой с payload)");
+
+        // 4. Копия в sessionStorage
+        if (!nativeInit) {
+            row(backupInit ? "ok" : "fail",
+                backupInit ? "Копия initData в sessionStorage ЕСТЬ (пережила переход)" : "Копии в sessionStorage нет",
+                backupInit ? `длина ${backupInit.length}` : "Сначала откройте шаг 1 внутри MAX, потом нажмите «Проверить переход».");
+        }
+
+        const effective = nativeInit || backupInit;
+        if (!effective) { row("fail", "Нечего отправлять на сервер — дальше проверять нечего"); return; }
+        row("wait", "Дальше используется:", nativeInit ? "нативный initData" : "копия из sessionStorage");
+
+        // 5. Сервер: POST /auth/max (initData в теле)
+        try {
+            const r = await fetch("/auth/max", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ init_data: effective })
+            });
+            const body = await r.text();
+            row(r.ok ? "ok" : "fail", `POST /auth/max → HTTP ${r.status}`, body);
+        } catch (e) {
+            row("fail", "POST /auth/max не выполнился", String(e));
+        }
+
+        // 6. Сервер: GET /auth/me (initData в заголовке — так будут ходить реальные страницы)
+        try {
+            const r = await fetch("/auth/me", { headers: { "X-Max-Init-Data": effective } });
+            const body = await r.text();
+            row(r.ok ? "ok" : "fail", `GET /auth/me (заголовок X-Max-Init-Data) → HTTP ${r.status}`, body);
+        } catch (e) {
+            row("fail", "GET /auth/me не выполнился", String(e));
+        }
+    })();
+
+    document.getElementById("copy-btn").onclick = async () => {
+        const text = "Шаг " + step + "\n" + report.join("\n");
+        try { await navigator.clipboard.writeText(text); alert("Скопировано"); }
+        catch (e) { alert("Не удалось скопировать — выделите текст отчёта вручную"); }
+    };
+    </script>
+</body>
+</html>
