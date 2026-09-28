@@ -7,9 +7,11 @@ import random
 import string
 from backend.models import (StudentAnswer, Test, Question, AnswerOption, User)
 from fastapi.responses import FileResponse
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+import fitz  # pymupdf — для извлечения текста из PDF
+from backend.gigachat_services import generate_notes_by_topic, generate_notes_by_text
 from backend.schemas import (
 TestCreate,
     TestResponse,
@@ -73,6 +75,16 @@ def student():
     return FileResponse("frontend/student.html")
 
 
+@app.get("/smart_notes.html")
+def smart_notes_page():
+    return FileResponse("frontend/smart_note.html")
+
+
+@app.get("/test_page")
+def test_page():
+    return FileResponse("frontend/test_page.html")
+
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -133,6 +145,80 @@ def generate_code():
 @app.get("/")
 def index():
     return FileResponse("frontend/index.html")
+
+
+# =========================
+# УМНЫЙ КОНСПЕКТ
+# =========================
+
+MAX_NOTES_INPUT_LENGTH = 15000  # ограничение длины текста, отправляемого в GigaChat
+
+
+class GenerateNotesRequest(BaseModel):
+    mode: str            # "topic" или "text"
+    topic: str | None = None
+    content: str | None = None
+
+
+def extract_text_from_pdf(raw: bytes) -> str:
+    doc = fitz.open(stream=raw, filetype="pdf")
+    try:
+        return "\n".join(page.get_text() for page in doc)
+    finally:
+        doc.close()
+
+
+@app.post("/generate-notes")
+def generate_notes(data: GenerateNotesRequest):
+    if data.mode == "topic":
+        topic = (data.topic or "").strip()
+        if not topic:
+            raise HTTPException(status_code=400, detail="Не указана тема конспекта")
+
+        try:
+            notes = generate_notes_by_topic(topic)
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Ошибка генерации конспекта: {e}")
+
+    elif data.mode == "text":
+        content = (data.content or "").strip()
+        if not content:
+            raise HTTPException(status_code=400, detail="Не передан текст для конспекта")
+
+        try:
+            notes = generate_notes_by_text(content[:MAX_NOTES_INPUT_LENGTH])
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Ошибка генерации конспекта: {e}")
+
+    else:
+        raise HTTPException(status_code=400, detail="Неизвестный режим генерации конспекта")
+
+    return {"notes": notes}
+
+
+@app.post("/generate-notes-from-file")
+async def generate_notes_from_file(file: UploadFile = File(...)):
+    raw = await file.read()
+    filename = (file.filename or "").lower()
+
+    try:
+        if filename.endswith(".pdf"):
+            text = extract_text_from_pdf(raw)
+        else:
+            text = raw.decode("utf-8", errors="ignore")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Не удалось прочитать файл: {e}")
+
+    text = text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Не удалось извлечь текст из файла — он пуст или повреждён")
+
+    try:
+        notes = generate_notes_by_text(text[:MAX_NOTES_INPUT_LENGTH])
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Ошибка генерации конспекта: {e}")
+
+    return {"notes": notes}
 
 
 # Создать тест
