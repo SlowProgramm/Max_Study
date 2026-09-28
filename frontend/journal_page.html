@@ -191,6 +191,18 @@ function escapeHtml(s) {
     }[ch]));
 }
 
+/** Фамилия + первая буква имени: "Иван Иванов" → "Иванов И." */
+function shortName(name) {
+    const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+        const first = parts[0];
+        const last = parts[parts.length - 1];
+        return last + " " + first.charAt(0).toUpperCase() + ".";
+    }
+    return name || "—";
+}
+
+
 function scoreClass(pct) {
     if (pct == null) return "";
     if (pct >= 70) return "score-ok";
@@ -221,7 +233,7 @@ async function loadTests() {
             <div class="test-card" onclick="openAnalytics(${t.test_id})">
                 <div>
                     <div class="title">${escapeHtml(t.title)}</div>
-                    <div class="meta">Код: ${escapeHtml(t.access_code)} · ${t.question_count} вопр.</div>
+                    <div class="meta">Код: ${escapeHtml(t.access_code)}${t.created_at ? " · " + escapeHtml(t.created_at) : ""}</div>
                 </div>
                 <span class="badge">${t.attempt_count} сдач</span>
             </div>
@@ -300,7 +312,7 @@ function renderAnalytics(data) {
                 <tbody>
                     ${data.students.map(s => `
                         <tr>
-                            <td>${escapeHtml(s.username)}</td>
+                            <td>${escapeHtml(shortName(s.username))}</td>
                             <td class="${scoreClass(s.percent)}">
                                 ${s.score != null ? s.score + " / " + s.total : "—"}
                             </td>
@@ -342,7 +354,16 @@ function renderAnalytics(data) {
     }).join("");
 }
 
-loadTests();
+async function autoOpenFromHash() {
+    const m = location.hash.match(/test=(\d+)/);
+    if (m) {
+        await loadTests();
+        openAnalytics(Number(m[1]));
+    } else {
+        loadTests();
+    }
+}
+autoOpenFromHash();
 </script>
 </body>
 </html>

@@ -18,6 +18,9 @@ from backend.schemas import (
     QuestionStat,
     TestAnalytics,
     StudentAttemptDetail,
+    GradebookResponse,
+    GradebookStudent,
+    GradebookScore,
 )
 from backend.models import Class, ClassMember, TestAttempt
 from sqlalchemy import func
@@ -862,6 +865,14 @@ def teacher_tests(
         .all()
     )
 
+    def _fmt_dt(dt):
+        if not dt:
+            return None
+        try:
+            return dt.strftime("%d.%m.%Y")
+        except Exception:
+            return str(dt)[:10]
+
     return [
         JournalTestItem(
             test_id=t.id,
@@ -869,6 +880,7 @@ def teacher_tests(
             access_code=t.access_code or "",
             question_count=q_counts.get(t.id, 0),
             attempt_count=a_counts.get(t.id, 0),
+            created_at=_fmt_dt(getattr(t, "created_at", None)),
         )
         for t in tests
     ]
@@ -970,6 +982,103 @@ def teacher_test_analytics(
         questions=question_stats,
         students=students_out,
     )
+
+
+
+
+@app.get("/api/teacher/gradebook", response_model=GradebookResponse)
+def teacher_gradebook(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Все ученики учителя (из классов) + оценки по всем тестам."""
+    tests = (
+        db.query(Test)
+        .filter(Test.creator_id == user.id)
+        .order_by(Test.id.desc())
+        .all()
+    )
+    test_ids = [t.id for t in tests]
+    q_counts = {}
+    a_counts = {}
+    if test_ids:
+        q_counts = dict(
+            db.query(Question.test_id, func.count(Question.id))
+            .filter(Question.test_id.in_(test_ids))
+            .group_by(Question.test_id)
+            .all()
+        )
+        a_counts = dict(
+            db.query(TestAttempt.test_id, func.count(TestAttempt.id))
+            .filter(TestAttempt.test_id.in_(test_ids), TestAttempt.score.isnot(None))
+            .group_by(TestAttempt.test_id)
+            .all()
+        )
+
+    def _fmt_dt(dt):
+        if not dt:
+            return None
+        try:
+            return dt.strftime("%d.%m.%Y")
+        except Exception:
+            return str(dt)[:10]
+
+    test_items = [
+        JournalTestItem(
+            test_id=t.id,
+            title=t.title or "Без названия",
+            access_code=t.access_code or "",
+            question_count=q_counts.get(t.id, 0),
+            attempt_count=a_counts.get(t.id, 0),
+            created_at=_fmt_dt(getattr(t, "created_at", None)),
+        )
+        for t in tests
+    ]
+
+    # ученики из классов учителя
+    students = (
+        db.query(User)
+        .join(ClassMember, ClassMember.student_id == User.id)
+        .join(Class, Class.id == ClassMember.class_id)
+        .filter(Class.teacher_id == user.id)
+        .distinct()
+        .order_by(User.username)
+        .all()
+    )
+
+    # лучшая (последняя завершённая) попытка ученика по каждому тесту
+    students_out = []
+    for st in students:
+        scores = []
+        for t in tests:
+            att = (
+                db.query(TestAttempt)
+                .filter(
+                    TestAttempt.test_id == t.id,
+                    TestAttempt.student_id == st.id,
+                    TestAttempt.score.isnot(None),
+                )
+                .order_by(TestAttempt.id.desc())
+                .first()
+            )
+            total = q_counts.get(t.id, 0)
+            percent = None
+            if att and total > 0 and att.score is not None:
+                percent = att.score / total * 100
+            scores.append(GradebookScore(
+                test_id=t.id,
+                score=att.score if att else None,
+                total=total,
+                percent=percent,
+                attempt_id=att.id if att else None,
+            ))
+        students_out.append(GradebookStudent(
+            student_id=st.id,
+            username=st.username,
+            scores=scores,
+        ))
+
+    return GradebookResponse(tests=test_items, students=students_out)
 
 
 @app.get("/history_page")

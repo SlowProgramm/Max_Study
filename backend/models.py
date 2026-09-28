@@ -85,6 +85,7 @@ class Test(Base):
     access_code = Column(String)
     # Ограничение времени на весь тест в минутах (None = без ограничения)
     time_limit_minutes = Column(Integer, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
     questions = relationship(
         "Question",
         back_populates="test"

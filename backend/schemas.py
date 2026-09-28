@@ -400,6 +400,26 @@ class JournalTestItem(BaseModel):
     access_code: str
     question_count: int
     attempt_count: int
+    created_at: str | None = None
+
+
+class GradebookScore(BaseModel):
+    test_id: int
+    score: int | None
+    total: int
+    percent: float | None
+    attempt_id: int | None = None
+
+
+class GradebookStudent(BaseModel):
+    student_id: int
+    username: str
+    scores: list[GradebookScore] = []
+
+
+class GradebookResponse(BaseModel):
+    tests: list[JournalTestItem]
+    students: list[GradebookStudent]
 
 
 class QuestionStat(BaseModel):

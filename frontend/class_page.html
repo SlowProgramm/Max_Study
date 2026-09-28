@@ -147,6 +147,46 @@
         }
         .msg.ok  { display: block; background: #dcfce7; color: #166534; }
         .msg.err { display: block; background: #fee2e2; color: #991b1b; }
+
+        /* ─── Таблица оценок ─── */
+        .grades-wrap { overflow-x: auto; margin-top: 10px; }
+        .grades-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            min-width: 400px;
+        }
+        .grades-table th, .grades-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #f3f4f6;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .grades-table th {
+            background: #f3f4f6;
+            font-weight: 600;
+        }
+        .grades-table th.test-head {
+            cursor: pointer;
+            color: #2563eb;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .grades-table th.test-head:hover { text-decoration: underline; }
+        .grades-table td.name-col {
+            text-align: left;
+            font-weight: 500;
+            position: sticky;
+            left: 0;
+            background: #fff;
+        }
+        .grades-table .score-ok { color: #16a34a; font-weight: 700; }
+        .grades-table .score-mid { color: #d97706; font-weight: 700; }
+        .grades-table .score-bad { color: #dc2626; font-weight: 700; }
+        .grades-table .score-none { color: #9ca3af; }
+        .grades-section { margin-top: 20px; }
+        .grades-section h2 { font-size: 17px; margin: 0 0 10px; }
     </style>
 </head>
 <body>
@@ -186,6 +226,12 @@
 
     <!-- Список классов с учениками -->
     <div id="classes"></div>
+
+    <!-- Оценки по тестам -->
+    <div class="grades-section" id="gradesSection">
+        <h2>Оценки за тесты</h2>
+        <div id="grades"><p class="muted">Загрузка оценок...</p></div>
+    </div>
 
     <script>
         const API = "/api/class";
@@ -264,7 +310,7 @@
                             : students.map(s => `
                                 <li>
                                     <span>
-                                        <span class="student-name">${escapeHtml(s.username)}</span>
+                                        <span class="student-name">${escapeHtml(shortName(s.username))}</span>
                                         <span class="student-meta">max_id: ${s.max_id}</span>
                                     </span>
                                     <button class="danger" onclick="removeStudent(${c.id}, ${s.id})">Удалить</button>
@@ -319,6 +365,74 @@
                 showMsg("Ученик удалён");
                 loadClasses();
             } catch (e) { showMsg(e.message, false); }
+        }
+
+
+        function shortName(name) {
+            const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+            if (parts.length >= 2) {
+                const first = parts[0];
+                const last = parts[parts.length - 1];
+                return last + " " + first.charAt(0).toUpperCase() + ".";
+            }
+            return name || "—";
+        }
+
+        function scoreClass(pct) {
+            if (pct == null) return "score-none";
+            if (pct >= 70) return "score-ok";
+            if (pct >= 40) return "score-mid";
+            return "score-bad";
+        }
+
+        async function loadGrades() {
+            const box = document.getElementById("grades");
+            try {
+                const res = await maxFetch("/api/teacher/gradebook");
+                if (!res.ok) {
+                    const d = await res.json().catch(() => ({}));
+                    throw new Error(d.detail || ("Ошибка " + res.status));
+                }
+                const data = await res.json();
+                if (!data.tests || !data.tests.length) {
+                    box.innerHTML = '<p class="empty">Нет созданных тестов — оценки появятся после публикаций.</p>';
+                    return;
+                }
+                if (!data.students || !data.students.length) {
+                    box.innerHTML = '<p class="empty">Нет учеников в классах.</p>';
+                    return;
+                }
+
+                const head = data.tests.map(t =>
+                    `<th class="test-head" title="${escapeHtml(t.title)}"
+                        onclick="location.href='/journal_page#test=${t.test_id}'">
+                        ${escapeHtml(t.title.length > 18 ? t.title.slice(0, 16) + "…" : t.title)}
+                        ${t.created_at ? `<div style="font-weight:400;color:#6b7280;font-size:11px">${escapeHtml(t.created_at)}</div>` : ""}
+                    </th>`
+                ).join("");
+
+                const rows = data.students.map(st => {
+                    const cells = st.scores.map(sc => {
+                        if (sc.score == null) {
+                            return `<td class="score-none">—</td>`;
+                        }
+                        const pct = sc.percent != null ? Math.round(sc.percent) : null;
+                        return `<td class="${scoreClass(sc.percent)}">${sc.score}/${sc.total}${pct != null ? ` <small>(${pct}%)</small>` : ""}</td>`;
+                    }).join("");
+                    return `<tr>
+                        <td class="name-col">${escapeHtml(shortName(st.username))}</td>
+                        ${cells}
+                    </tr>`;
+                }).join("");
+
+                box.innerHTML = `<div class="grades-wrap"><table class="grades-table">
+                    <thead><tr><th class="name-col">ФИО</th>${head}</tr></thead>
+                    <tbody>${rows}</tbody>
+                </table></div>
+                <p class="muted" style="margin-top:8px">Нажмите на название теста, чтобы открыть подробную аналитику.</p>`;
+            } catch (e) {
+                box.innerHTML = `<p class="empty" style="color:#dc2626">${escapeHtml(e.message)}</p>`;
+            }
         }
 
         function escapeHtml(s) {
