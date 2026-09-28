@@ -382,11 +382,16 @@ def get_test_by_code(code: str, db: Session = Depends(get_db)):
 
 
 @app.post("/tests/save")
-def save_test(data: SaveTestRequest, db: Session = Depends(get_db)):
+def save_test(
+    data: SaveTestRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
 
+    # creator_id из тела запроса игнорируем: его можно подделать.
     test = Test(
         title=data.title,
-        creator_id=data.creator_id,
+        creator_id=user.id,
         access_code=generate_code()
     )
 
@@ -429,7 +434,8 @@ def save_test(data: SaveTestRequest, db: Session = Depends(get_db)):
 def submit_test(
     attempt_id: int,
     data: SubmitTestRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
 ):
 
     attempt = db.query(
@@ -440,9 +446,15 @@ def submit_test(
 
 
     if not attempt:
-        return {
-            "error": "Попытка не найдена"
-        }
+        raise HTTPException(status_code=404, detail="Попытка не найдена")
+
+    # Отправить ответы может только тот, кто начал эту попытку.
+    if attempt.student_id != user.id:
+        raise HTTPException(status_code=403, detail="Это не ваша попытка")
+
+    # Повторная отправка задвоила бы ответы и перезаписала результат.
+    if attempt.score is not None:
+        raise HTTPException(status_code=409, detail="Попытка уже завершена")
 
 
     score = 0
@@ -455,6 +467,10 @@ def submit_test(
         ).filter(
             AnswerOption.id == answer.answer_id
         ).first()
+
+
+        if selected_answer is None:
+            raise HTTPException(status_code=400, detail="Неизвестный вариант ответа")
 
 
         if selected_answer.is_correct:
@@ -487,8 +503,8 @@ def submit_test(
 @app.post("/tests/{code}/start")
 def start_test(
     code: str,
-    data: StartTestRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
 ):
 
     test = db.query(
@@ -506,28 +522,11 @@ def start_test(
 
 
 
-    user = db.query(
-        User
-    ).filter(
-        User.id == data.student_id
-    ).first()
-
-
-
-    if not user:
-
-        return {
-            "error": "Пользователь не найден"
-        }
-
-
-
-
     attempt = models.TestAttempt(
 
         test_id=test.id,
 
-        student_id=data.student_id
+        student_id=user.id
 
     )
 
@@ -547,7 +546,7 @@ def start_test(
 
         "test_id": test.id,
 
-        "student_id": data.student_id
+        "student_id": user.id
 
     }
 
@@ -557,7 +556,8 @@ def start_test(
 @app.get("/attempts/{attempt_id}/result")
 def get_result(
     attempt_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
 ):
 
     attempt = db.query(
@@ -568,9 +568,12 @@ def get_result(
 
 
     if not attempt:
-        return {
-            "error": "Попытка не найдена"
-        }
+        raise HTTPException(status_code=404, detail="Попытка не найдена")
+
+    # Результат видит сам ученик и автор теста.
+    creator_id = db.query(Test.creator_id).filter(Test.id == attempt.test_id).scalar()
+    if user.id not in (attempt.student_id, creator_id):
+        raise HTTPException(status_code=403, detail="Нет доступа к этому результату")
 
 
     total = db.query(

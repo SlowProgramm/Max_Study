@@ -64,6 +64,16 @@
     window.maxInitData = function () { return nativeInit() || fromHash() || store(KEY); };
     window.maxStartParam = startParam;
 
+    // Текст ошибки для пользователя по ответу сервера
+    window.maxErrorText = function (status, body) {
+        if (status === 401) {
+            return "Не удалось определить ваш аккаунт MAX. Закройте приложение и откройте его снова через бота.";
+        }
+        var d = body && (body.detail || body.error);
+        if (d && typeof d === "object") d = d.message;
+        return d ? String(d) : "Ошибка сервера (" + status + ")";
+    };
+
     // fetch, который сам добавляет заголовок с initData
     window.maxFetch = function (url, opts) {
         opts = opts || {};

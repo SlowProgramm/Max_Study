@@ -176,7 +176,8 @@ class SaveTestRequest(BaseModel):
 
     title: str
 
-    creator_id: int
+    # Устарело: создатель берётся из проверенных данных MAX, значение игнорируется.
+    creator_id: int | None = None
 
     questions: list[QuestionSave]
 

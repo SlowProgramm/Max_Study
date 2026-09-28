@@ -5,6 +5,9 @@
 
     <meta charset="UTF-8">
 
+    <script src="https://st.max.ru/js/max-web-app.js"></script>
+    <script src="/static/max-auth.js"></script>
+
     <meta name="viewport"
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
 
@@ -702,7 +705,7 @@ async function saveTest(){
 
 
     const response =
-    await fetch(
+    await maxFetch(
         "/tests/save",
         {
 
@@ -723,9 +726,6 @@ async function saveTest(){
                 generatedTest.title,
 
 
-                creator_id:1,
-
-
                 questions:
                 generatedTest.questions
 
@@ -740,6 +740,15 @@ async function saveTest(){
 
     const result =
         await response.json();
+
+
+    if(!response.ok){
+
+        alert(maxErrorText(response.status, result));
+
+        return;
+
+    }
 
 
 

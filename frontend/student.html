@@ -5,6 +5,9 @@
 
 <meta charset="UTF-8">
 
+<script src="https://st.max.ru/js/max-web-app.js"></script>
+<script src="/static/max-auth.js"></script>
+
 <meta name="viewport"
 content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0">
 
@@ -216,7 +219,7 @@ async function loadTest(){
 
 
     const start =
-    await fetch(
+    await maxFetch(
         `/tests/${code}/start`,
         {
             method:"POST"
@@ -229,6 +232,14 @@ async function loadTest(){
     await start.json();
 
 
+
+    if(!start.ok || !attempt.attempt_id){
+
+        alert(maxErrorText(start.status, attempt));
+
+        return;
+
+    }
 
     attemptId =
     attempt.attempt_id;
@@ -401,7 +412,7 @@ async function submitTest(){
 
 
     const response =
-    await fetch(
+    await maxFetch(
         `/attempts/${attemptId}/submit`,
         {
 
@@ -429,6 +440,16 @@ async function submitTest(){
 
     const data =
     await response.json();
+
+
+
+    if(!response.ok){
+
+        alert(maxErrorText(response.status, data));
+
+        return;
+
+    }
 
 
 
