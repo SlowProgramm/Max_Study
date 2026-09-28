@@ -378,27 +378,56 @@ def submit_test(
     if attempt.score is not None:
         raise HTTPException(status_code=409, detail="Попытка уже завершена")
 
+    # Собираем ответы пользователя: {question_id: answer_id}
+    user_answers = {a.question_id: a.answer_id for a in data.answers}
+
+    # Берём все вопросы теста
+    questions = (
+        db.query(Question)
+        .filter(Question.test_id == attempt.test_id)
+        .order_by(Question.order_number, Question.id)
+        .all()
+    )
+
     score = 0
+    wrong_answers = []
 
-    for answer in data.answers:
-        selected_answer = (
-            db.query(AnswerOption)
-            .filter(AnswerOption.id == answer.answer_id)
-            .first()
-        )
+    for q in questions:
+        chosen_id = user_answers.get(q.id)
+        if chosen_id is None:
+            # вопрос без ответа — считаем неправильным
+            correct = next((a for a in q.answers if a.is_correct), None)
+            wrong_answers.append({
+                "question_id": q.id,
+                "question": q.text,
+                "your_answer": None,
+                "correct_answer": correct.text if correct else None,
+                "explanation": q.explanation,
+            })
+            continue
 
-        if selected_answer is None:
-            raise HTTPException(status_code=400, detail="Неизвестный вариант ответа")
+        chosen = next((a for a in q.answers if a.id == chosen_id), None)
+        if chosen is None:
+            raise HTTPException(400, "Неизвестный вариант ответа")
 
-        if selected_answer.is_correct:
-            score += 1
-
-        student_answer = models.StudentAnswer(
+        # Сохраняем ответ студента
+        db.add(models.StudentAnswer(
             attempt_id=attempt_id,
-            question_id=answer.question_id,
-            answer_id=answer.answer_id,
-        )
-        db.add(student_answer)
+            question_id=q.id,
+            answer_id=chosen_id,
+        ))
+
+        if chosen.is_correct:
+            score += 1
+        else:
+            correct = next((a for a in q.answers if a.is_correct), None)
+            wrong_answers.append({
+                "question_id": q.id,
+                "question": q.text,
+                "your_answer": chosen.text,
+                "correct_answer": correct.text if correct else None,
+                "explanation": q.explanation,
+            })
 
     attempt.score = score
     db.commit()
@@ -406,9 +435,9 @@ def submit_test(
     return {
         "attempt_id": attempt_id,
         "score": score,
-        "total": len(data.answers),
+        "total": len(questions),
+        "wrong_answers": wrong_answers,
     }
-
 
 @app.post("/tests/{code}/start")
 def start_test(

@@ -2,25 +2,344 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Тест — MAX Study</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://st.max.ru/js/max-web-app.js"></script>
+    <script src="/static/max-auth.js"></script>
+    <title>Прохождение теста</title>
     <style>
-        body { font-family: system-ui, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 16px; }
-        h1 { margin-bottom: 16px; }
-        .topic { color: #4c8bf5; font-weight: 600; margin-bottom: 24px; }
-        .placeholder { padding: 24px; background: #f5f7fa; border-radius: 12px; text-align: center; color: #666; }
-        a.back { display: inline-block; margin-top: 24px; color: #4c8bf5; text-decoration: none; }
+        * { box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 20px 16px 40px;
+            background: #f9fafb;
+            color: #222;
+        }
+        h1 { font-size: 22px; margin: 0 0 16px; }
+        h2 { font-size: 18px; margin: 0 0 8px; }
+
+        .code-row { display: flex; gap: 8px; margin-bottom: 24px; }
+        input#code {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        button {
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            background: #2563eb;
+            color: #fff;
+            cursor: pointer;
+        }
+        button:hover { background: #1d4ed8; }
+        button:disabled { background: #cbd5e1; cursor: not-allowed; }
+        button.ghost { background: #e5e7eb; color: #111; }
+        button.ghost:hover { background: #d1d5db; }
+
+        .progress {
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .progress > div {
+            height: 100%;
+            background: #2563eb;
+            transition: width 0.3s;
+        }
+
+        .question-header {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+        .question-text {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            line-height: 1.4;
+        }
+
+        .answer-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            background: #fff;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .answer-option:hover { border-color: #93c5fd; }
+        .answer-option.selected {
+            border-color: #2563eb;
+            background: #eff6ff;
+        }
+        .answer-option input { margin: 0; }
+
+        .nav-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 20px;
+        }
+        .nav-row button { flex: 1; }
+
+        /* ─── Результат ─── */
+        .result-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .result-card .score {
+            font-size: 48px;
+            font-weight: 700;
+            margin: 8px 0;
+        }
+        .result-card .score.ok  { color: #16a34a; }
+        .result-card .score.mid { color: #d97706; }
+        .result-card .score.bad { color: #dc2626; }
+        .result-card .percent { color: #6b7280; font-size: 16px; }
+
+        .wrong-item {
+            background: #fff;
+            border-left: 4px solid #dc2626;
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+        }
+        .wrong-item h3 {
+            font-size: 16px;
+            margin: 0 0 10px;
+            line-height: 1.4;
+        }
+        .wrong-item p {
+            margin: 6px 0;
+            font-size: 15px;
+            line-height: 1.4;
+        }
+        .wrong-item .your    { color: #dc2626; }
+        .wrong-item .correct { color: #16a34a; }
+        .wrong-item .explain {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #e5e7eb;
+            color: #4b5563;
+            font-size: 14px;
+        }
+        .wrong-item .explain strong { color: #111; }
+
+        .muted { color: #6b7280; font-size: 15px; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
-    <h1>Тест для закрепления</h1>
-    <p class="topic" id="topic"></p>
-    <div class="placeholder">Здесь будет тест по теме. Логика ещё не реализована.</div>
-    <a class="back" href="/smart_notes.html">← Создать другой конспект</a>
 
-    <script>
-        const topic = new URLSearchParams(location.search).get("topic") || "(тема не указана)";
-        document.getElementById("topic").textContent = "Тема: " + topic;
-        // Позже: вызвать /generate-test с mode=topic и topic=topic
-    </script>
+<h1>Прохождение теста</h1>
+
+<!-- Шаг 1: ввод кода -->
+<div id="stepCode">
+    <div class="code-row">
+        <input id="code" placeholder="Код теста" />
+        <button onclick="loadTest()">Начать</button>
+    </div>
+</div>
+
+<!-- Шаг 2: вопрос -->
+<div id="stepQuestion" class="hidden">
+    <div class="progress"><div id="progressBar" style="width:0"></div></div>
+
+    <div class="question-header" id="questionCounter"></div>
+    <div class="question-text" id="questionText"></div>
+    <div id="answers"></div>
+
+    <div class="nav-row">
+        <button class="ghost" id="prevBtn" onclick="prevQuestion()">← Назад</button>
+        <button id="nextBtn" onclick="nextQuestion()">Далее →</button>
+    </div>
+</div>
+
+<!-- Шаг 3: результат -->
+<div id="stepResult" class="hidden">
+    <div class="result-card" id="resultCard"></div>
+    <div id="wrongList"></div>
+    <div class="nav-row" style="margin-top:24px">
+        <button class="ghost" onclick="location.href='/student_page'">← В меню</button>
+    </div>
+</div>
+
+<script>
+let attemptId = null;
+let questions = [];
+let currentIndex = 0;
+let userAnswers = {}; // { question_id: answer_id }
+
+async function loadTest() {
+    const code = document.getElementById("code").value.trim();
+    if (!code) return alert("Введите код теста");
+
+    // Загружаем тест (без авторизации — этот эндпоинт публичный)
+    const res = await fetch(`/tests/code/${code}`);
+    const test = await res.json();
+
+    if (test.error) {
+        alert("Тест не найден");
+        return;
+    }
+
+    // Стартуем попытку (нужна авторизация)
+    const startRes = await maxFetch(`/tests/${code}/start`, { method: "POST" });
+    const attempt = await startRes.json();
+
+    if (!startRes.ok || !attempt.attempt_id) {
+        alert(maxErrorText(startRes.status, attempt));
+        return;
+    }
+
+    attemptId = attempt.attempt_id;
+    questions = test.questions;
+    currentIndex = 0;
+    userAnswers = {};
+
+    document.getElementById("stepCode").classList.add("hidden");
+    document.getElementById("stepQuestion").classList.remove("hidden");
+
+    renderQuestion();
+}
+
+function renderQuestion() {
+    const q = questions[currentIndex];
+    const total = questions.length;
+
+    // Прогресс
+    document.getElementById("progressBar").style.width =
+        ((currentIndex) / total * 100) + "%";
+
+    // Заголовок
+    document.getElementById("questionCounter").textContent =
+        `Вопрос ${currentIndex + 1} из ${total}`;
+    document.getElementById("questionText").textContent = q.text;
+
+    // Ответы
+    const answersBox = document.getElementById("answers");
+    answersBox.innerHTML = "";
+    for (const a of q.answers) {
+        const checked = userAnswers[q.id] === a.id;
+        const div = document.createElement("label");
+        div.className = "answer-option" + (checked ? " selected" : "");
+        div.innerHTML = `
+            <input type="radio" name="q_${q.id}" value="${a.id}" ${checked ? "checked" : ""}>
+            <span>${escapeHtml(a.text)}</span>
+        `;
+        div.querySelector("input").addEventListener("change", () => {
+            userAnswers[q.id] = a.id;
+            // перерисуем только selected-класс
+            answersBox.querySelectorAll(".answer-option").forEach(el => el.classList.remove("selected"));
+            div.classList.add("selected");
+        });
+        answersBox.appendChild(div);
+    }
+
+    // Кнопки
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+
+    prevBtn.disabled = currentIndex === 0;
+
+    const isLast = currentIndex === total - 1;
+    nextBtn.textContent = isLast ? "Завершить тест" : "Далее →";
+    nextBtn.onclick = isLast ? submitTest : nextQuestion;
+}
+
+function prevQuestion() {
+    if (currentIndex > 0) {
+        currentIndex--;
+        renderQuestion();
+    }
+}
+
+function nextQuestion() {
+    if (currentIndex < questions.length - 1) {
+        currentIndex++;
+        renderQuestion();
+    }
+}
+
+async function submitTest() {
+    const answers = questions
+        .filter(q => userAnswers[q.id] !== undefined)
+        .map(q => ({
+            question_id: q.id,
+            answer_id: userAnswers[q.id],
+        }));
+
+    const res = await maxFetch(`/attempts/${attemptId}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+        alert(maxErrorText(res.status, data));
+        return;
+    }
+
+    showResult(data);
+}
+
+function showResult(data) {
+    document.getElementById("stepQuestion").classList.add("hidden");
+    document.getElementById("stepResult").classList.remove("hidden");
+
+    const percent = data.total > 0 ? data.score / data.total * 100 : 0;
+    const cls = percent >= 70 ? "ok" : percent >= 40 ? "mid" : "bad";
+
+    document.getElementById("resultCard").innerHTML = `
+        <h2>Результат</h2>
+        <div class="score ${cls}">${data.score} / ${data.total}</div>
+        <div class="percent">${Math.round(percent)}% правильных</div>
+    `;
+
+    const wrongBox = document.getElementById("wrongList");
+    if (!data.wrong_answers || data.wrong_answers.length === 0) {
+        wrongBox.innerHTML = '<p class="muted" style="text-align:center">🎉 Все ответы правильные!</p>';
+        return;
+    }
+
+    wrongBox.innerHTML = `
+        <h2 style="margin-bottom:12px">Разбор ошибок</h2>
+        ${data.wrong_answers.map(w => `
+            <div class="wrong-item">
+                <h3>❌ ${escapeHtml(w.question)}</h3>
+                <p class="your">Ваш ответ: ${w.your_answer ? escapeHtml(w.your_answer) : "<i>не выбран</i>"}</p>
+                <p class="correct">Правильный ответ: ${escapeHtml(w.correct_answer ?? "—")}</p>
+                ${w.explanation ? `
+                    <div class="explain">
+                        <strong>Объяснение:</strong> ${escapeHtml(w.explanation)}
+                    </div>
+                ` : ""}
+            </div>
+        `).join("")}
+    `;
+}
+
+function escapeHtml(s) {
+    return String(s ?? "").replace(/[&<>"']/g, ch => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[ch]));
+}
+</script>
 </body>
 </html>
