@@ -437,6 +437,9 @@ def submit_test(
             })
 
     attempt.score = score
+    # Антисписывание
+    attempt.leave_count = data.leave_count or 0
+    attempt.hidden_seconds = data.hidden_seconds or 0
     db.commit()
 
     return {
@@ -444,6 +447,8 @@ def submit_test(
         "score": score,
         "total": len(questions),
         "wrong_answers": wrong_answers,
+        "leave_count": attempt.leave_count,
+        "hidden_seconds": attempt.hidden_seconds,
     }
 
 @app.post("/tests/{code}/start")

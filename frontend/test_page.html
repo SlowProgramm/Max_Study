@@ -211,6 +211,41 @@ let remainingSeconds = null;
 let timerInterval = null;
 let isSubmitting = false;
 
+// Антисписывание
+let leaveCount = 0;
+let hiddenStart = null;
+let totalHiddenMs = 0;
+let antiCheatActive = false;
+
+function startAntiCheat() {
+    if (antiCheatActive) return;
+    antiCheatActive = true;
+    leaveCount = 0;
+    hiddenStart = null;
+    totalHiddenMs = 0;
+    document.addEventListener("visibilitychange", onVisibilityChange);
+}
+
+function stopAntiCheat() {
+    if (!antiCheatActive) return;
+    antiCheatActive = false;
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+    if (hiddenStart) {
+        totalHiddenMs += Date.now() - hiddenStart;
+        hiddenStart = null;
+    }
+}
+
+function onVisibilityChange() {
+    if (document.visibilityState === "hidden") {
+        leaveCount++;
+        hiddenStart = Date.now();
+    } else if (hiddenStart) {
+        totalHiddenMs += Date.now() - hiddenStart;
+        hiddenStart = null;
+    }
+}
+
 async function loadTest() {
     const code = document.getElementById("code").value.trim();
     if (!code) return alert("Введите код теста");
@@ -246,6 +281,7 @@ async function loadTest() {
 
     renderQuestion();
     startTimer();
+    startAntiCheat();
 }
 
 function startTimer() {
@@ -358,6 +394,7 @@ async function submitTest() {
         clearInterval(timerInterval);
         timerInterval = null;
     }
+    stopAntiCheat();
 
     const answers = questions
         .filter(q => userAnswers[q.id] !== undefined)
@@ -369,7 +406,11 @@ async function submitTest() {
     const res = await maxFetch(`/attempts/${attemptId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({
+            answers,
+            leave_count: leaveCount,
+            hidden_seconds: Math.round(totalHiddenMs / 1000),
+        }),
     });
 
     const data = await res.json();

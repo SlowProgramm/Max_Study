@@ -246,6 +246,10 @@ class SubmitTestRequest(BaseModel):
 
     answers: list[StudentAnswerCreate]
 
+    # Антисписывание (опционально — старые клиенты могут не присылать)
+    leave_count: int | None = 0
+    hidden_seconds: int | None = 0
+
 
 
 
