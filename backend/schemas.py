@@ -329,7 +329,3 @@ class StartTestRequest(BaseModel):
     student_id: int
 
 
-class NotesRequest(BaseModel):
-    mode: Literal["topic", "text"]
-    topic: Optional[str] = None
-    content: Optional[str] = None
