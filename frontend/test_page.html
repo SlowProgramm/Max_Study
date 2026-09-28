@@ -141,28 +141,6 @@
 
         .muted { color: #6b7280; font-size: 15px; }
         .hidden { display: none; }
-
-        /* Таймер */
-        #timerBar {
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            background: #1e293b;
-            color: #fff;
-            text-align: center;
-            padding: 10px 16px;
-            font-size: 18px;
-            font-weight: 600;
-            letter-spacing: 1px;
-            margin: -20px -16px 20px;
-            border-radius: 0 0 12px 12px;
-        }
-        #timerBar.warning { background: #d97706; }
-        #timerBar.danger  { background: #dc2626; animation: pulse 1s infinite; }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50%      { opacity: 0.75; }
-        }
     </style>
 </head>
 <body>
@@ -179,7 +157,6 @@
 
 <!-- Шаг 2: вопрос -->
 <div id="stepQuestion" class="hidden">
-    <div id="timerBar" class="hidden">⏱ <span id="timerText">--:--</span></div>
     <div class="progress"><div id="progressBar" style="width:0"></div></div>
 
     <div class="question-header" id="questionCounter"></div>
@@ -206,10 +183,6 @@ let attemptId = null;
 let questions = [];
 let currentIndex = 0;
 let userAnswers = {}; // { question_id: answer_id }
-let timeLimitMinutes = null;
-let remainingSeconds = null;
-let timerInterval = null;
-let isSubmitting = false;
 
 async function loadTest() {
     const code = document.getElementById("code").value.trim();
@@ -238,57 +211,10 @@ async function loadTest() {
     currentIndex = 0;
     userAnswers = {};
 
-    // Таймер: берём из теста или из ответа start
-    timeLimitMinutes = attempt.time_limit_minutes ?? test.time_limit_minutes ?? null;
-
     document.getElementById("stepCode").classList.add("hidden");
     document.getElementById("stepQuestion").classList.remove("hidden");
 
     renderQuestion();
-    startTimer();
-}
-
-function startTimer() {
-    if (!timeLimitMinutes || timeLimitMinutes <= 0) {
-        document.getElementById("timerBar").classList.add("hidden");
-        return;
-    }
-
-    remainingSeconds = timeLimitMinutes * 60;
-    const timerBar = document.getElementById("timerBar");
-    timerBar.classList.remove("hidden", "warning", "danger");
-    updateTimerDisplay();
-
-    if (timerInterval) clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
-        remainingSeconds--;
-        updateTimerDisplay();
-
-        if (remainingSeconds <= 0) {
-            clearInterval(timerInterval);
-            timerInterval = null;
-            // Автоматическая отправка
-            if (!isSubmitting) {
-                alert("⏰ Время вышло! Тест будет отправлен автоматически.");
-                submitTest();
-            }
-        }
-    }, 1000);
-}
-
-function updateTimerDisplay() {
-    const mins = Math.floor(Math.max(0, remainingSeconds) / 60);
-    const secs = Math.max(0, remainingSeconds) % 60;
-    document.getElementById("timerText").textContent =
-        `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-
-    const timerBar = document.getElementById("timerBar");
-    timerBar.classList.remove("warning", "danger");
-    if (remainingSeconds <= 30) {
-        timerBar.classList.add("danger");
-    } else if (remainingSeconds <= 60) {
-        timerBar.classList.add("warning");
-    }
 }
 
 function renderQuestion() {
@@ -350,15 +276,6 @@ function nextQuestion() {
 }
 
 async function submitTest() {
-    if (isSubmitting) return;
-    isSubmitting = true;
-
-    // Останавливаем таймер
-    if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-    }
-
     const answers = questions
         .filter(q => userAnswers[q.id] !== undefined)
         .map(q => ({
@@ -375,7 +292,6 @@ async function submitTest() {
     const data = await res.json();
 
     if (!res.ok) {
-        isSubmitting = false;
         alert(maxErrorText(res.status, data));
         return;
     }
@@ -385,7 +301,6 @@ async function submitTest() {
 
 function showResult(data) {
     document.getElementById("stepQuestion").classList.add("hidden");
-    document.getElementById("timerBar")?.classList.add("hidden");
     document.getElementById("stepResult").classList.remove("hidden");
 
     const percent = data.total > 0 ? data.score / data.total * 100 : 0;
