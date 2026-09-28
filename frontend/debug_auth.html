@@ -59,13 +59,46 @@
     function writeBackup(v) { try { sessionStorage.setItem(STORE_KEY, v); return true; } catch (e) { return false; } }
 
     (async function main() {
+        // 0. Как именно открыта страница (значения из # не показываем целиком)
+        const inIframe = (function () { try { return window.self !== window.top; } catch (e) { return true; } })();
+        row(inIframe ? "ok" : "warn", "Страница внутри iframe: " + (inIframe ? "да" : "нет"),
+            inIframe ? "Так обычно открываются мини-приложения MAX." : "Открыта как обычная вкладка/окно — мини-приложение так не запускается.");
+
+        const hashRaw = location.hash.replace(/^#/, "");
+        const hashParams = new URLSearchParams(hashRaw);
+        const hashKeys = Array.from(hashParams.keys());
+        row(hashRaw ? "ok" : "fail",
+            "Фрагмент URL (#): " + (hashRaw ? "есть" : "ПУСТОЙ"),
+            hashRaw
+                ? "параметры: " + hashKeys.map(k => `${k}(${(hashParams.get(k) || "").length})`).join(", ")
+                : "MAX кладёт данные запуска в #WebAppData=… — здесь их нет.");
+        row(hashParams.has("WebAppData") ? "ok" : "fail",
+            "В # есть WebAppData: " + (hashParams.has("WebAppData") ? "да" : "нет"),
+            "WebAppPlatform=" + hashParams.get("WebAppPlatform") + ", WebAppVersion=" + hashParams.get("WebAppVersion"));
+
+        const queryKeys = Array.from(new URLSearchParams(location.search).keys());
+        row("wait", "Параметры в ?query", queryKeys.length ? queryKeys.join(", ") : "нет");
+        row("wait", "document.referrer", document.referrer || "пусто");
+        row("wait", "userAgent", navigator.userAgent);
+        row("wait", "Адрес страницы (без # и ?)", location.origin + location.pathname);
+
         // 1. Загрузился ли мост
         const app = window.WebApp;
+        if (app) {
+            row("wait", "Что есть в window.WebApp",
+                Object.keys(app).slice(0, 40).join(", ") +
+                "\ntypeof initData=" + typeof app.initData + ", platform=" + String(app.platform));
+        }
         if (!app) {
             row("fail", "Мост MAX не загрузился (window.WebApp нет)",
                 "Либо страница открыта не из MAX, либо скрипт st.max.ru заблокирован.");
         } else {
-            row("ok", "Мост MAX загружен", `platform=${app.platform}, version=${app.version}`);
+            if (app.platform) {
+                row("ok", "Мост MAX загружен и работает", `platform=${app.platform}, version=${app.version}`);
+            } else {
+                row("warn", "Скрипт моста загрузился, но клиент MAX его не инициализировал",
+                    "platform=null — так бывает вне мини-приложения MAX: window.WebApp есть, но данных запуска нет.");
+            }
             try { app.ready(); } catch (e) {}
         }
 
