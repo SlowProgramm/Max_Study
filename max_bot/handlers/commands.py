@@ -22,15 +22,31 @@ async def id_handler(event: MessageCreated):
     from_user = await event.fetch_from_user()
     chat = await event.fetch_chat()
 
-    # ← ВРЕМЕННАЯ ОТЛАДКА, потом убрать
-    await event.message.answer(f"DEBUG: {from_user.__dict__}")
-    # ← конец временной отладки
-
     if from_user is None or chat is None:
         await event.message.answer("Не удалось получить данные, попробуйте ещё раз.")
         return
 
+    max_id = from_user.user_id
+
+    # username может быть None — собираем имя из first_name + last_name
+    parts = [from_user.first_name, from_user.last_name]
+    name = " ".join(p for p in parts if p) or (from_user.username or f"user_{max_id}")
+
+    # upsert в БД, чтобы преподаватель нашёл ученика по max_id
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.max_id == max_id).first()
+        if user is None:
+            user = User(max_id=max_id, username=name)
+            db.add(user)
+        elif user.username != name:
+            user.username = name
+        db.commit()
+    finally:
+        db.close()
+
     await event.message.answer(
-        f"Ваш ID: {from_user.user_id}\n"
-        f"ID этого чата: {chat.chat_id}"
+        f"Ваш ID: <b>{max_id}</b>\n"
+        f"ID этого чата: {chat.chat_id}\n\n"
+        f"Передайте свой ID преподавателю, чтобы он добавил вас в класс."
     )
