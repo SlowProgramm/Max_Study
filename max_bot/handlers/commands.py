@@ -13,7 +13,7 @@ async def help_handler(event: MessageCreated):
         "Доступные команды:\n\n"
         "/start — открыть мини-приложение MAX Study\n"
         "/help — этот список команд\n"
-        "/id — показать ваш ID и ID чата"
+        "/id — показать ваш ID (нужен преподавателю, чтобы добавить вас в класс)"
     )
 
 
@@ -22,6 +22,10 @@ async def id_handler(event: MessageCreated):
     from_user = await event.fetch_from_user()
     chat = await event.fetch_chat()
 
+    # ← ВРЕМЕННАЯ ОТЛАДКА, потом убрать
+    await event.message.answer(f"DEBUG: {from_user.__dict__}")
+    # ← конец временной отладки
+
     if from_user is None or chat is None:
         await event.message.answer("Не удалось получить данные, попробуйте ещё раз.")
         return
@@ -29,34 +33,4 @@ async def id_handler(event: MessageCreated):
     await event.message.answer(
         f"Ваш ID: {from_user.user_id}\n"
         f"ID этого чата: {chat.chat_id}"
-    )
-
-
-
-
-
-@router.message_handler(commands=["myid", "start"])
-async def cmd_myid(message):
-    max_id = message.from_user.id
-    username = (
-        getattr(message.from_user, "username", None)
-        or getattr(message.from_user, "first_name", None)
-        or f"user_{max_id}"
-    )
-
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.max_id == max_id).first()
-        if user is None:
-            user = User(max_id=max_id, username=username)
-            db.add(user)
-        elif user.username != username:
-            user.username = username
-        db.commit()
-    finally:
-        db.close()
-
-    await message.answer(
-        f"Ваш MAX ID: <b>{max_id}</b>\n\n"
-        f"Передайте его преподавателю, чтобы он добавил вас в класс."
     )
