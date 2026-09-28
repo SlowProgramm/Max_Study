@@ -11,9 +11,9 @@ from backend.schemas import (
     StudentOut,
     ClassOut,
     CreateClassIn,
-    AddStudentIn,
+    AddStudentIn, AttemptHistoryItem,
 )
-from backend.models import Class, ClassMember
+from backend.models import Class, ClassMember, TestAttempt
 from sqlalchemy import func
 import random
 import string
@@ -647,3 +647,48 @@ def remove_student(
 @app.get("/class_page")
 def class_page():
     return FileResponse("frontend/class_page.html")
+
+@app.get("/api/student/history", response_model=list[AttemptHistoryItem])
+def student_history(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    rows = (
+        db.query(TestAttempt, Test)
+        .join(Test, Test.id == TestAttempt.test_id)
+        .filter(TestAttempt.student_id == user.id)
+        .order_by(TestAttempt.id.desc())
+        .all()
+    )
+
+    if not rows:
+        return []
+
+    test_ids = list({t.id for _, t in rows})
+    totals = dict(
+        db.query(Question.test_id, func.count(Question.id))
+        .filter(Question.test_id.in_(test_ids))
+        .group_by(Question.test_id)
+        .all()
+    )
+
+    result = []
+    for attempt, test in rows:
+        total = totals.get(test.id, 0)
+        percent = None
+        if attempt.score is not None and total > 0:
+            percent = attempt.score / total * 100
+
+        result.append(AttemptHistoryItem(
+            attempt_id=attempt.id,
+            test_id=test.id,
+            test_title=test.title or "Без названия",
+            score=attempt.score,
+            total=total,
+            percent=percent,
+        ))
+    return result
+
+@app.get("/history_page")
+def history_page():
+    return FileResponse("frontend/history_page.html")

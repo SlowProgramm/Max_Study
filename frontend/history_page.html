@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>История тестов</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 20px 16px 40px;
+            color: #222;
+            background: #f9fafb;
+        }
+        h1 { margin: 0 0 20px; font-size: 24px; }
+
+        .back {
+            display: inline-block;
+            margin-bottom: 16px;
+            padding: 8px 14px;
+            font-size: 15px;
+            background: #e5e7eb;
+            color: #111;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .back:hover { background: #d1d5db; }
+
+        .history-item {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+        .history-item .title {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 2px;
+        }
+        .history-item .sub {
+            color: #6b7280;
+            font-size: 13px;
+        }
+        .score {
+            font-size: 18px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .score.ok   { color: #16a34a; }
+        .score.mid  { color: #d97706; }
+        .score.bad  { color: #dc2626; }
+        .score.none { color: #6b7280; font-size: 14px; font-weight: 500; }
+
+        .muted {
+            color: #6b7280;
+            font-size: 15px;
+            text-align: center;
+            padding: 40px 0;
+        }
+        .error { color: #dc2626; }
+    </style>
+</head>
+<body>
+    <button class="back" onclick="history.back()">← Назад</button>
+    <h1>История тестов</h1>
+
+    <div id="list">
+        <p class="muted">Загрузка...</p>
+    </div>
+
+    <script>
+        async function loadHistory() {
+            const box = document.getElementById("list");
+            try {
+                const res = await fetch("/api/student/history", {
+                    headers: {
+                        "X-Max-Init-Data": window.WebApp?.initData || "",
+                    },
+                });
+
+                if (!res.ok) {
+                    throw new Error("Ошибка " + res.status);
+                }
+
+                const items = await res.json();
+
+                if (items.length === 0) {
+                    box.innerHTML = '<p class="muted">Вы ещё не проходили ни одного теста.</p>';
+                    return;
+                }
+
+                box.innerHTML = items.map(renderItem).join("");
+            } catch (e) {
+                box.innerHTML = `<p class="muted error">Не удалось загрузить историю: ${escapeHtml(e.message)}</p>`;
+            }
+        }
+
+        function renderItem(a) {
+            let scoreHtml;
+            if (a.score === null || a.score === undefined) {
+                scoreHtml = '<div class="score none">Не завершён</div>';
+            } else if (a.percent === null) {
+                scoreHtml = `<div class="score">${a.score} / ${a.total}</div>`;
+            } else {
+                const cls = a.percent >= 70 ? "ok" : a.percent >= 40 ? "mid" : "bad";
+                scoreHtml = `<div class="score ${cls}">${a.score} / ${a.total} <small>(${Math.round(a.percent)}%)</small></div>`;
+            }
+
+            return `
+                <div class="history-item">
+                    <div>
+                        <div class="title">${escapeHtml(a.test_title)}</div>
+                        <div class="sub">Попытка #${a.attempt_id}</div>
+                    </div>
+                    ${scoreHtml}
+                </div>
+            `;
+        }
+
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, ch => ({
+                "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+            }[ch]));
+        }
+
+        loadHistory();
+    </script>
+</body>
+</html>

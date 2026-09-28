@@ -356,3 +356,13 @@ class CreateClassIn(BaseModel):
 class AddStudentIn(BaseModel):
     max_id: int
     class_id: int
+
+
+
+class AttemptHistoryItem(BaseModel):
+    attempt_id: int
+    test_id: int
+    test_title: str
+    score: int | None
+    total: int
+    percent: float | None
