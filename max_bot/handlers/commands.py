@@ -35,7 +35,7 @@ async def id_handler(event: MessageCreated):
 
 
 
-@dp.message_handler(commands=["myid", "start"])
+@router.message_handler(commands=["myid", "start"])
 async def cmd_myid(message):
     max_id = message.from_user.id
     username = (
