@@ -82,6 +82,11 @@
         row("wait", "userAgent", navigator.userAgent);
         row("wait", "Адрес страницы (без # и ?)", location.origin + location.pathname);
 
+        let entryDiag = null;
+        try { entryDiag = sessionStorage.getItem("max_entry_diag"); } catch (e) {}
+        row(entryDiag ? "ok" : "warn", "Что увидела ВХОДНАЯ страница (max-auth.js)",
+            entryDiag || "записи нет: max-auth.js не подключён на index.html (или sessionStorage недоступен)");
+
         // 1. Загрузился ли мост
         const app = window.WebApp;
         if (app) {
