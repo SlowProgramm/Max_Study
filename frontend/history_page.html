@@ -2,8 +2,10 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>История тестов</title>
+    <script src="https://st.max.ru/js/max-web-app.js"></script>
+    <script src="/static/max-auth.js"></script>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -80,14 +82,11 @@
         async function loadHistory() {
             const box = document.getElementById("list");
             try {
-                const res = await fetch("/api/student/history", {
-                    headers: {
-                        "X-Max-Init-Data": window.WebApp?.initData || "",
-                    },
-                });
+                const res = await maxFetch("/api/student/history");
 
                 if (!res.ok) {
-                    throw new Error("Ошибка " + res.status);
+                    const result = await res.json().catch(() => ({}));
+                    throw new Error(maxErrorText(res.status, result));
                 }
 
                 const items = await res.json();
