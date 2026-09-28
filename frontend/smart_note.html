@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    <script src="https://st.max.ru/js/max-web-app.js"></script>
+<script src="/static/max-auth.js"></script>
     <meta charset="UTF-8">
     <title>Умный конспект — MAX Study</title>
     <style>
@@ -191,132 +193,184 @@
     </div>
 
     <script>
-        let currentSource = "topic";
-        let currentTopic = "";
+    let currentSource = "topic";
+    let currentTopic = "";
+    let currentNotes = "";  // ← сам текст конспекта (нужен для генерации теста)
 
-        // ── Переключение источника ─────────────
-        document.querySelectorAll(".source-option").forEach(btn => {
-            btn.onclick = () => {
-                document.querySelectorAll(".source-option").forEach(b => b.classList.remove("active"));
-                document.querySelectorAll(".field").forEach(f => f.classList.remove("visible"));
+    // ── Переключение источника ─────────────
+    document.querySelectorAll(".source-option").forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll(".source-option").forEach(b => b.classList.remove("active"));
+            document.querySelectorAll(".field").forEach(f => f.classList.remove("visible"));
 
-                btn.classList.add("active");
-                currentSource = btn.dataset.source;
-                document.getElementById("field-" + currentSource).classList.add("visible");
-                document.getElementById("status").textContent = "";
-            };
-        });
-
-        // Показ имени выбранного файла
-        document.getElementById("file-input").onchange = (e) => {
-            const name = e.target.files[0]?.name || "";
-            document.getElementById("file-name").textContent = name;
+            btn.classList.add("active");
+            currentSource = btn.dataset.source;
+            document.getElementById("field-" + currentSource).classList.add("visible");
+            document.getElementById("status").textContent = "";
         };
+    });
 
-        // ── Генерация ──────────────────────────
-        const btn = document.getElementById("generate-btn");
-        const status = document.getElementById("status");
-        const result = document.getElementById("result");
-        const notesContent = document.getElementById("notes-content");
+    document.getElementById("file-input").onchange = (e) => {
+        const name = e.target.files[0]?.name || "";
+        document.getElementById("file-name").textContent = name;
+    };
 
-        btn.onclick = async () => {
-            status.textContent = "";
-            result.classList.remove("visible");
+    // ── Генерация конспекта ────────────────
+    const btn = document.getElementById("generate-btn");
+    const status = document.getElementById("status");
+    const result = document.getElementById("result");
+    const notesContent = document.getElementById("notes-content");
 
-            if (currentSource === "topic") {
-                const topic = document.getElementById("topic-input").value.trim();
-                if (!topic) return (status.textContent = "Введите тему");
-                currentTopic = topic;
+    btn.onclick = async () => {
+        status.textContent = "";
+        result.classList.remove("visible");
 
-                await callJson("/generate-notes", {
-                    mode: "topic",
-                    topic: topic
-                });
+        if (currentSource === "topic") {
+            const topic = document.getElementById("topic-input").value.trim();
+            if (!topic) return (status.textContent = "Введите тему");
+            currentTopic = topic;
 
-            } else if (currentSource === "text") {
-                const text = document.getElementById("text-input").value.trim();
-                if (!text) return (status.textContent = "Вставьте текст");
-                currentTopic = text.slice(0, 60);
+            await callJson("/generate-notes", {
+                mode: "topic",
+                topic: topic
+            });
 
-                await callJson("/generate-notes", {
+        } else if (currentSource === "text") {
+            const text = document.getElementById("text-input").value.trim();
+            if (!text) return (status.textContent = "Вставьте текст");
+            currentTopic = text.slice(0, 60);
+
+            await callJson("/generate-notes", {
+                mode: "text",
+                content: text
+            });
+
+        } else if (currentSource === "file") {
+            const file = document.getElementById("file-input").files[0];
+            if (!file) return (status.textContent = "Выберите файл");
+            currentTopic = file.name;
+
+            await callFile(file);
+        }
+    };
+
+    async function callJson(url, payload) {
+        btn.disabled = true;
+        status.textContent = "Генерирую конспект...";
+
+        try {
+            const res = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error(await res.text());
+            const data = await res.json();
+            showNotes(data.notes || "");
+        } catch (e) {
+            status.textContent = "Ошибка: " + e.message;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async function callFile(file) {
+        btn.disabled = true;
+        status.textContent = "Генерирую конспект из файла...";
+
+        try {
+            const form = new FormData();
+            form.append("file", file);
+
+            const res = await fetch("/generate-notes-from-file", {
+                method: "POST",
+                body: form
+            });
+            if (!res.ok) throw new Error(await res.text());
+            const data = await res.json();
+            showNotes(data.notes || "");
+        } catch (e) {
+            status.textContent = "Ошибка: " + e.message;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function showNotes(text) {
+        currentNotes = text;  // ← запоминаем для генерации теста
+        status.textContent = "";
+        notesContent.innerHTML = simpleMarkdown(text);
+        result.classList.add("visible");
+        result.scrollIntoView({ behavior: "smooth" });
+    }
+
+    function simpleMarkdown(md) {
+        return md
+            .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+            .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+            .replace(/^# (.+)$/gm, "<h2>$1</h2>")
+            .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+            .replace(/^- (.+)$/gm, "<li>$1</li>")
+            .replace(/(<li>.*<\/li>)/s, "<ul>$1</ul>")
+            .replace(/\n{2,}/g, "<br><br>");
+    }
+
+    // ── Переход к тесту ────────────────────
+    const testBtn = document.getElementById("test-btn");
+
+    testBtn.onclick = async () => {
+        if (!currentNotes) {
+            return alert("Сначала создайте конспект");
+        }
+
+        testBtn.disabled = true;
+        const originalText = testBtn.textContent;
+        testBtn.textContent = "Готовлю тест...";
+
+        try {
+            // 1. Генерируем тест из текста конспекта
+            const genRes = await fetch("/generate-test", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
                     mode: "text",
-                    content: text
-                });
+                    content: currentNotes,
+                    question_count: 5,
+                }),
+            });
 
-            } else if (currentSource === "file") {
-                const file = document.getElementById("file-input").files[0];
-                if (!file) return (status.textContent = "Выберите файл");
-                currentTopic = file.name;
+            if (!genRes.ok) throw new Error(await genRes.text());
+            const generated = await genRes.json();
 
-                await callFile(file);
+            if (!generated.questions || generated.questions.length === 0) {
+                throw new Error("Не удалось сгенерировать вопросы");
             }
-        };
 
-        async function callJson(url, payload) {
-            btn.disabled = true;
-            status.textContent = "Генерирую конспект...";
+            // 2. Сохраняем тест — получаем access_code
+            const saveRes = await maxFetch("/tests/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: generated.title || ("Тест по конспекту: " + currentTopic),
+                    questions: generated.questions,
+                }),
+            });
 
-            try {
-                const res = await fetch(url, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
-                if (!res.ok) throw new Error(await res.text());
-                const data = await res.json();
-                showNotes(data.notes || "");
-            } catch (e) {
-                status.textContent = "Ошибка: " + e.message;
-            } finally {
-                btn.disabled = false;
+            const saved = await saveRes.json();
+
+            if (!saveRes.ok) {
+                throw new Error(maxErrorText(saveRes.status, saved));
             }
+
+            // 3. Редирект на прохождение с кодом в hash (код не показываем)
+            location.href = "/student.html#code=" + saved.code;
+
+        } catch (e) {
+            alert("Ошибка: " + e.message);
+            testBtn.disabled = false;
+            testBtn.textContent = originalText;
         }
-
-        async function callFile(file) {
-            btn.disabled = true;
-            status.textContent = "Генерирую конспект из файла...";
-
-            try {
-                const form = new FormData();
-                form.append("file", file);
-
-                const res = await fetch("/generate-notes-from-file", {
-                    method: "POST",
-                    body: form
-                });
-                if (!res.ok) throw new Error(await res.text());
-                const data = await res.json();
-                showNotes(data.notes || "");
-            } catch (e) {
-                status.textContent = "Ошибка: " + e.message;
-            } finally {
-                btn.disabled = false;
-            }
-        }
-
-        function showNotes(text) {
-            status.textContent = "";
-            notesContent.innerHTML = simpleMarkdown(text);
-            result.classList.add("visible");
-            result.scrollIntoView({ behavior: "smooth" });
-        }
-
-        function simpleMarkdown(md) {
-            return md
-                .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-                .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-                .replace(/^# (.+)$/gm, "<h2>$1</h2>")
-                .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-                .replace(/^- (.+)$/gm, "<li>$1</li>")
-                .replace(/(<li>.*<\/li>)/s, "<ul>$1</ul>")
-                .replace(/\n{2,}/g, "<br><br>");
-        }
-
-        // ── Переход к тесту ────────────────────
-        document.getElementById("test-btn").onclick = () => {
-            const params = new URLSearchParams({ topic: currentTopic });
-            location.href = "/test_page?" + params.toString();
-        };
-    </script>
+    };
+</script>
 </body>
 </html>

@@ -340,6 +340,15 @@ function escapeHtml(s) {
         "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
     }[ch]));
 }
+    // Автозапуск теста, если код пришёл в hash: /student.html#code=ABC123
+(function autoStartFromHash() {
+    const match = location.hash.match(/code=([A-Z0-9]+)/i);
+    if (match) {
+        const code = match[1];
+        document.getElementById("code").value = code;
+        loadTest();
+    }
+})();
 </script>
 </body>
 </html>
