@@ -375,3 +375,61 @@ class AttemptHistoryItem(BaseModel):
     score: int | None
     total: int
     percent: float | None
+    leave_count: int = 0
+    hidden_seconds: int = 0
+
+
+# =========================
+# ЖУРНАЛ / АНАЛИТИКА
+# =========================
+
+class JournalStudentScore(BaseModel):
+    student_id: int
+    username: str
+    score: int | None
+    total: int
+    percent: float | None
+    leave_count: int = 0
+    hidden_seconds: int = 0
+    attempt_id: int | None = None
+
+
+class JournalTestItem(BaseModel):
+    test_id: int
+    title: str
+    access_code: str
+    question_count: int
+    attempt_count: int
+
+
+class QuestionStat(BaseModel):
+    question_id: int
+    text: str
+    correct_count: int
+    wrong_count: int
+    total_answers: int
+    correct_percent: float
+
+
+class TestAnalytics(BaseModel):
+    test_id: int
+    title: str
+    question_count: int
+    attempt_count: int
+    avg_percent: float | None
+    hardest_question: QuestionStat | None
+    questions: list[QuestionStat]
+    students: list[JournalStudentScore]
+
+
+class StudentAttemptDetail(BaseModel):
+    attempt_id: int
+    test_id: int
+    test_title: str
+    score: int | None
+    total: int
+    percent: float | None
+    leave_count: int = 0
+    hidden_seconds: int = 0
+    wrong_answers: list[dict] = []
+    hardest_question_text: str | None = None

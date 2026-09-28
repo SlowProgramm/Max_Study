@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>История тестов</title>
+    <title>Мои тесты</title>
     <script src="https://st.max.ru/js/max-web-app.js"></script>
     <script src="/static/max-auth.js"></script>
     <style>
@@ -17,6 +17,7 @@
             background: #f9fafb;
         }
         h1 { margin: 0 0 20px; font-size: 24px; }
+        h2 { font-size: 18px; margin: 0 0 12px; }
 
         .back {
             display: inline-block;
@@ -41,7 +42,9 @@
             justify-content: space-between;
             align-items: center;
             gap: 12px;
+            cursor: pointer;
         }
+        .history-item:hover { border-color: #93c5fd; background: #eff6ff; }
         .history-item .title {
             font-weight: 600;
             font-size: 16px;
@@ -68,37 +71,137 @@
             padding: 40px 0;
         }
         .error { color: #dc2626; }
+        .hidden { display: none; }
+
+        .card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+        .stats-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .stat-box {
+            flex: 1;
+            min-width: 100px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+        }
+        .stat-box .num { font-size: 22px; font-weight: 700; }
+        .stat-box .lbl { font-size: 12px; color: #6b7280; margin-top: 2px; }
+        .stat-box.warn .num { color: #dc2626; }
+
+        .wrong-item {
+            background: #fff;
+            border-left: 4px solid #dc2626;
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+        }
+        .wrong-item h3 { font-size: 15px; margin: 0 0 8px; }
+        .wrong-item p { margin: 4px 0; font-size: 14px; }
+        .your { color: #dc2626; }
+        .correct { color: #16a34a; }
+        .explain {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #e5e7eb;
+            color: #4b5563;
+            font-size: 13px;
+        }
+
+        .hardest-box {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 14px;
+        }
+        .hardest-box h3 { margin: 0 0 6px; font-size: 14px; color: #991b1b; }
+        .hardest-box p { margin: 0; font-size: 14px; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        th { background: #f3f4f6; font-weight: 600; }
     </style>
 </head>
 <body>
-    <button class="back" onclick="history.back()">← Назад</button>
-    <h1>История тестов</h1>
+    <button class="back" id="backBtn" onclick="goBack()">← Назад</button>
+    <h1 id="pageTitle">Мои тесты</h1>
 
-    <div id="list">
-        <p class="muted">Загрузка...</p>
+    <div id="listView">
+        <div id="list"><p class="muted">Загрузка...</p></div>
+    </div>
+
+    <div id="detailView" class="hidden">
+        <div class="stats-row" id="statsRow"></div>
+        <div id="cheatBox"></div>
+        <div id="hardestBox"></div>
+        <div class="card">
+            <h2>Разбор ошибок</h2>
+            <div id="wrongList"></div>
+        </div>
     </div>
 
     <script>
+        let currentAttemptId = null;
+
+        function goBack() {
+            if (currentAttemptId) {
+                currentAttemptId = null;
+                document.getElementById("detailView").classList.add("hidden");
+                document.getElementById("listView").classList.remove("hidden");
+                document.getElementById("pageTitle").textContent = "Мои тесты";
+                document.getElementById("backBtn").onclick = () => history.back();
+            } else {
+                history.back();
+            }
+        }
+
+        function escapeHtml(s) {
+            return String(s ?? "").replace(/[&<>"']/g, ch => ({
+                "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+            }[ch]));
+        }
+
+        function fmtTime(sec) {
+            if (!sec) return "0 с";
+            if (sec < 60) return sec + " с";
+            return Math.floor(sec / 60) + " мин " + (sec % 60) + " с";
+        }
+
         async function loadHistory() {
             const box = document.getElementById("list");
             try {
                 const res = await maxFetch("/api/student/history");
-
                 if (!res.ok) {
                     const result = await res.json().catch(() => ({}));
                     throw new Error(maxErrorText(res.status, result));
                 }
-
                 const items = await res.json();
-
                 if (items.length === 0) {
                     box.innerHTML = '<p class="muted">Вы ещё не проходили ни одного теста.</p>';
                     return;
                 }
-
                 box.innerHTML = items.map(renderItem).join("");
             } catch (e) {
-                box.innerHTML = `<p class="muted error">Не удалось загрузить историю: ${escapeHtml(e.message)}</p>`;
+                box.innerHTML = `<p class="muted error">Не удалось загрузить: ${escapeHtml(e.message)}</p>`;
             }
         }
 
@@ -113,20 +216,106 @@
                 scoreHtml = `<div class="score ${cls}">${a.score} / ${a.total} <small>(${Math.round(a.percent)}%)</small></div>`;
             }
 
+            const cheat = (a.leave_count > 0 || a.hidden_seconds > 0)
+                ? `<div class="sub">⚠ уходов: ${a.leave_count || 0}, скрыто: ${fmtTime(a.hidden_seconds || 0)}</div>`
+                : "";
+
             return `
-                <div class="history-item">
+                <div class="history-item" onclick="openDetail(${a.attempt_id})">
                     <div>
                         <div class="title">${escapeHtml(a.test_title)}</div>
+                        ${cheat}
                     </div>
                     ${scoreHtml}
                 </div>
             `;
         }
 
-        function escapeHtml(s) {
-            return String(s).replace(/[&<>"']/g, ch => ({
-                "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-            }[ch]));
+        async function openDetail(attemptId) {
+            currentAttemptId = attemptId;
+            document.getElementById("listView").classList.add("hidden");
+            document.getElementById("detailView").classList.remove("hidden");
+            document.getElementById("pageTitle").textContent = "Подробности";
+            document.getElementById("backBtn").onclick = goBack;
+            document.getElementById("statsRow").innerHTML = '<p class="muted">Загрузка...</p>';
+            document.getElementById("cheatBox").innerHTML = "";
+            document.getElementById("hardestBox").innerHTML = "";
+            document.getElementById("wrongList").innerHTML = "";
+
+            try {
+                const res = await maxFetch(`/api/student/attempts/${attemptId}/detail`);
+                if (!res.ok) {
+                    const d = await res.json().catch(() => ({}));
+                    throw new Error(maxErrorText(res.status, d));
+                }
+                const data = await res.json();
+                renderDetail(data);
+            } catch (e) {
+                document.getElementById("statsRow").innerHTML =
+                    `<p class="muted error">${escapeHtml(e.message)}</p>`;
+            }
+        }
+
+        function renderDetail(data) {
+            document.getElementById("pageTitle").textContent = data.test_title;
+
+            const pct = data.percent != null ? Math.round(data.percent) : null;
+            const cls = pct == null ? "" : pct >= 70 ? "ok" : pct >= 40 ? "mid" : "bad";
+
+            document.getElementById("statsRow").innerHTML = `
+                <div class="stat-box">
+                    <div class="num ${cls}" style="color:inherit">${data.score != null ? data.score + " / " + data.total : "—"}</div>
+                    <div class="lbl">Оценка</div>
+                </div>
+                <div class="stat-box">
+                    <div class="num">${pct != null ? pct + "%" : "—"}</div>
+                    <div class="lbl">Процент</div>
+                </div>
+                <div class="stat-box ${data.leave_count > 0 ? "warn" : ""}">
+                    <div class="num">${data.leave_count || 0}</div>
+                    <div class="lbl">Уходов со стр.</div>
+                </div>
+                <div class="stat-box ${(data.hidden_seconds || 0) > 30 ? "warn" : ""}">
+                    <div class="num">${fmtTime(data.hidden_seconds || 0)}</div>
+                    <div class="lbl">Время скрытия</div>
+                </div>
+            `;
+
+            if (data.leave_count > 0 || data.hidden_seconds > 0) {
+                document.getElementById("cheatBox").innerHTML = `
+                    <div class="card" style="border-color:#fecaca;background:#fef2f2">
+                        <h2 style="color:#991b1b;font-size:15px">Контроль присутствия</h2>
+                        <table>
+                            <tr><th>Уходов со страницы</th><td>${data.leave_count || 0}</td></tr>
+                            <tr><th>Время, пока вкладка скрыта</th><td>${fmtTime(data.hidden_seconds || 0)}</td></tr>
+                        </table>
+                    </div>
+                `;
+            }
+
+            if (data.hardest_question_text) {
+                document.getElementById("hardestBox").innerHTML = `
+                    <div class="hardest-box">
+                        <h3>Самый сложный вопрос в этом тесте (по всем ученикам)</h3>
+                        <p>${escapeHtml(data.hardest_question_text)}</p>
+                    </div>
+                `;
+            }
+
+            const wrongs = data.wrong_answers || [];
+            if (!wrongs.length) {
+                document.getElementById("wrongList").innerHTML =
+                    '<p class="muted" style="padding:12px 0">🎉 Ошибок нет — все ответы правильные!</p>';
+            } else {
+                document.getElementById("wrongList").innerHTML = wrongs.map(w => `
+                    <div class="wrong-item">
+                        <h3>❌ ${escapeHtml(w.question)}</h3>
+                        <p class="your">Ваш ответ: ${w.your_answer ? escapeHtml(w.your_answer) : "<i>не выбран</i>"}</p>
+                        <p class="correct">Правильный: ${escapeHtml(w.correct_answer ?? "—")}</p>
+                        ${w.explanation ? `<div class="explain"><strong>Объяснение:</strong> ${escapeHtml(w.explanation)}</div>` : ""}
+                    </div>
+                `).join("");
+            }
         }
 
         loadHistory();

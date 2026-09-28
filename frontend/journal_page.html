@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Журнал — оценки</title>
+    <script src="https://st.max.ru/js/max-web-app.js"></script>
+    <script src="/static/max-auth.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 16px 16px 40px;
+            background: #f9fafb;
+            color: #222;
+        }
+        h1 { font-size: 22px; margin: 0 0 16px; }
+        h2 { font-size: 18px; margin: 0 0 12px; }
+        .back {
+            display: inline-block;
+            margin-bottom: 12px;
+            padding: 8px 14px;
+            font-size: 14px;
+            background: #e5e7eb;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .back:hover { background: #d1d5db; }
+        .muted { color: #6b7280; text-align: center; padding: 32px 0; }
+        .error { color: #dc2626; }
+
+        .test-list { display: flex; flex-direction: column; gap: 8px; }
+        .test-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 14px 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+        .test-card:hover { border-color: #93c5fd; background: #eff6ff; }
+        .test-card .title { font-weight: 600; font-size: 16px; }
+        .test-card .meta { color: #6b7280; font-size: 13px; margin-top: 2px; }
+        .badge {
+            background: #e0e7ff;
+            color: #3730a3;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 20px;
+        }
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 14px;
+        }
+        th { background: #f3f4f6; font-weight: 600; }
+        tr:last-child td { border-bottom: none; }
+        .score-ok { color: #16a34a; font-weight: 700; }
+        .score-mid { color: #d97706; font-weight: 700; }
+        .score-bad { color: #dc2626; font-weight: 700; }
+        .cheat-warn { color: #dc2626; font-size: 12px; }
+
+        .card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .hardest {
+            background: #fef2f2;
+            border-color: #fecaca;
+        }
+        .hardest h3 { margin: 0 0 8px; font-size: 15px; color: #991b1b; }
+        .hardest p { margin: 0; font-size: 14px; line-height: 1.4; }
+
+        .bar-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .bar-label {
+            width: 140px;
+            font-size: 13px;
+            color: #374151;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .bar-track {
+            flex: 1;
+            height: 18px;
+            background: #fee2e2;
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+        }
+        .bar-ok {
+            height: 100%;
+            background: #22c55e;
+        }
+        .bar-pct {
+            width: 48px;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: right;
+            color: #374151;
+        }
+
+        .hidden { display: none; }
+        .stats-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .stat-box {
+            flex: 1;
+            min-width: 120px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+        }
+        .stat-box .num { font-size: 24px; font-weight: 700; }
+        .stat-box .lbl { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    </style>
+</head>
+<body>
+    <button class="back" id="backBtn" onclick="goBack()">← Назад</button>
+    <h1 id="pageTitle">Журнал</h1>
+
+    <div id="listView">
+        <div id="testList"><p class="muted">Загрузка...</p></div>
+    </div>
+
+    <div id="detailView" class="hidden">
+        <div class="stats-row" id="statsRow"></div>
+        <div class="card hardest" id="hardestBox"></div>
+        <div class="card">
+            <h2>Оценки учеников</h2>
+            <div id="studentsTable"></div>
+        </div>
+        <div class="card">
+            <h2>Статистика по вопросам</h2>
+            <p style="font-size:13px;color:#6b7280;margin:0 0 12px">Зелёный — правильные, красный фон — ошибки</p>
+            <div id="chartBox"></div>
+        </div>
+    </div>
+
+<script>
+let currentTestId = null;
+
+function goBack() {
+    if (currentTestId) {
+        currentTestId = null;
+        document.getElementById("detailView").classList.add("hidden");
+        document.getElementById("listView").classList.remove("hidden");
+        document.getElementById("pageTitle").textContent = "Журнал";
+        document.getElementById("backBtn").onclick = () => history.back();
+    } else {
+        history.back();
+    }
+}
+
+function escapeHtml(s) {
+    return String(s ?? "").replace(/[&<>"']/g, ch => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[ch]));
+}
+
+function scoreClass(pct) {
+    if (pct == null) return "";
+    if (pct >= 70) return "score-ok";
+    if (pct >= 40) return "score-mid";
+    return "score-bad";
+}
+
+function fmtTime(sec) {
+    if (!sec) return "0 с";
+    if (sec < 60) return sec + " с";
+    return Math.floor(sec / 60) + " мин " + (sec % 60) + " с";
+}
+
+async function loadTests() {
+    const box = document.getElementById("testList");
+    try {
+        const res = await maxFetch("/api/teacher/tests");
+        if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            throw new Error(maxErrorText(res.status, d));
+        }
+        const items = await res.json();
+        if (!items.length) {
+            box.innerHTML = '<p class="muted">У вас пока нет созданных тестов.</p>';
+            return;
+        }
+        box.innerHTML = '<div class="test-list">' + items.map(t => `
+            <div class="test-card" onclick="openAnalytics(${t.test_id})">
+                <div>
+                    <div class="title">${escapeHtml(t.title)}</div>
+                    <div class="meta">Код: ${escapeHtml(t.access_code)} · ${t.question_count} вопр.</div>
+                </div>
+                <span class="badge">${t.attempt_count} сдач</span>
+            </div>
+        `).join("") + "</div>";
+    } catch (e) {
+        box.innerHTML = `<p class="muted error">${escapeHtml(e.message)}</p>`;
+    }
+}
+
+async function openAnalytics(testId) {
+    currentTestId = testId;
+    document.getElementById("listView").classList.add("hidden");
+    document.getElementById("detailView").classList.remove("hidden");
+    document.getElementById("pageTitle").textContent = "Аналитика теста";
+    document.getElementById("backBtn").onclick = goBack;
+
+    document.getElementById("statsRow").innerHTML = '<p class="muted">Загрузка...</p>';
+    document.getElementById("hardestBox").innerHTML = "";
+    document.getElementById("studentsTable").innerHTML = "";
+    document.getElementById("chartBox").innerHTML = "";
+
+    try {
+        const res = await maxFetch(`/api/teacher/tests/${testId}/analytics`);
+        if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            throw new Error(maxErrorText(res.status, d));
+        }
+        const data = await res.json();
+        renderAnalytics(data);
+    } catch (e) {
+        document.getElementById("statsRow").innerHTML =
+            `<p class="muted error">${escapeHtml(e.message)}</p>`;
+    }
+}
+
+function renderAnalytics(data) {
+    document.getElementById("pageTitle").textContent = data.title;
+
+    document.getElementById("statsRow").innerHTML = `
+        <div class="stat-box"><div class="num">${data.attempt_count}</div><div class="lbl">Сдач</div></div>
+        <div class="stat-box"><div class="num">${data.question_count}</div><div class="lbl">Вопросов</div></div>
+        <div class="stat-box"><div class="num">${data.avg_percent != null ? data.avg_percent + "%" : "—"}</div><div class="lbl">Средний %</div></div>
+    `;
+
+    const h = data.hardest_question;
+    if (h) {
+        document.getElementById("hardestBox").innerHTML = `
+            <h3>Самый сложный вопрос</h3>
+            <p>${escapeHtml(h.text)}</p>
+            <p style="margin-top:8px;font-size:13px;color:#991b1b">
+                Правильно: ${h.correct_count} / ${h.total_answers}
+                (${h.correct_percent}%)
+            </p>
+        `;
+    } else {
+        document.getElementById("hardestBox").innerHTML =
+            "<p class=\"muted\" style=\"padding:0;margin:0\">Нет данных по вопросам</p>";
+    }
+
+    // таблица учеников
+    if (!data.students.length) {
+        document.getElementById("studentsTable").innerHTML =
+            '<p class="muted" style="padding:12px 0">Ещё никто не сдавал</p>';
+    } else {
+        document.getElementById("studentsTable").innerHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>ФИО</th>
+                        <th>Оценка</th>
+                        <th>%</th>
+                        <th>Уходы</th>
+                        <th>Скрыто</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.students.map(s => `
+                        <tr>
+                            <td>${escapeHtml(s.username)}</td>
+                            <td class="${scoreClass(s.percent)}">
+                                ${s.score != null ? s.score + " / " + s.total : "—"}
+                            </td>
+                            <td class="${scoreClass(s.percent)}">
+                                ${s.percent != null ? Math.round(s.percent) + "%" : "—"}
+                            </td>
+                            <td class="${s.leave_count > 0 ? "cheat-warn" : ""}">
+                                ${s.leave_count || 0}
+                            </td>
+                            <td class="${s.hidden_seconds > 30 ? "cheat-warn" : ""}">
+                                ${fmtTime(s.hidden_seconds || 0)}
+                            </td>
+                        </tr>
+                    `).join("")}
+                </tbody>
+            </table>
+        `;
+    }
+
+    // диаграмма по вопросам
+    if (!data.questions.length) {
+        document.getElementById("chartBox").innerHTML =
+            '<p class="muted" style="padding:0;margin:0">Нет вопросов</p>';
+        return;
+    }
+    document.getElementById("chartBox").innerHTML = data.questions.map((q, i) => {
+        const tot = q.total_answers || 1;
+        const okW = (q.correct_count / tot * 100);
+        const label = `В${i + 1}`;
+        return `
+            <div class="bar-row" title="${escapeHtml(q.text)}">
+                <div class="bar-label">${label}: ${escapeHtml(q.text.slice(0, 40))}${q.text.length > 40 ? "…" : ""}</div>
+                <div class="bar-track">
+                    <div class="bar-ok" style="width:${okW}%"></div>
+                </div>
+                <div class="bar-pct">${q.correct_percent}%</div>
+            </div>
+        `;
+    }).join("");
+}
+
+loadTests();
+</script>
+</body>
+</html>

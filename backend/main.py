@@ -11,7 +11,13 @@ from backend.schemas import (
     StudentOut,
     ClassOut,
     CreateClassIn,
-    AddStudentIn, AttemptHistoryItem,
+    AddStudentIn,
+    AttemptHistoryItem,
+    JournalTestItem,
+    JournalStudentScore,
+    QuestionStat,
+    TestAnalytics,
+    StudentAttemptDetail,
 )
 from backend.models import Class, ClassMember, TestAttempt
 from sqlalchemy import func
@@ -728,9 +734,249 @@ def student_history(
             score=attempt.score,
             total=total,
             percent=percent,
+            leave_count=attempt.leave_count or 0,
+            hidden_seconds=attempt.hidden_seconds or 0,
         ))
     return result
+
+
+@app.get("/api/student/attempts/{attempt_id}/detail", response_model=StudentAttemptDetail)
+def student_attempt_detail(
+    attempt_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    attempt = (
+        db.query(models.TestAttempt)
+        .filter(models.TestAttempt.id == attempt_id)
+        .first()
+    )
+    if not attempt:
+        raise HTTPException(404, "Попытка не найдена")
+    if attempt.student_id != user.id:
+        raise HTTPException(403, "Нет доступа")
+
+    test = db.query(Test).filter(Test.id == attempt.test_id).first()
+    questions = (
+        db.query(Question)
+        .options(joinedload(Question.answers))
+        .filter(Question.test_id == attempt.test_id)
+        .order_by(Question.order_number, Question.id)
+        .all()
+    )
+    total = len(questions)
+    percent = None
+    if attempt.score is not None and total > 0:
+        percent = attempt.score / total * 100
+
+    sa_rows = (
+        db.query(StudentAnswer)
+        .filter(StudentAnswer.attempt_id == attempt_id)
+        .all()
+    )
+    chosen_map = {r.question_id: r.answer_id for r in sa_rows}
+
+    wrong_answers = []
+    for q in questions:
+        chosen_id = chosen_map.get(q.id)
+        correct = next((a for a in q.answers if a.is_correct), None)
+        chosen = next((a for a in q.answers if a.id == chosen_id), None) if chosen_id else None
+        is_ok = chosen is not None and chosen.is_correct
+        if not is_ok:
+            wrong_answers.append({
+                "question_id": q.id,
+                "question": q.text,
+                "your_answer": chosen.text if chosen else None,
+                "correct_answer": correct.text if correct else None,
+                "explanation": q.explanation,
+            })
+
+    hardest_text = None
+    all_attempts = (
+        db.query(models.TestAttempt)
+        .filter(
+            models.TestAttempt.test_id == attempt.test_id,
+            models.TestAttempt.score.isnot(None),
+        )
+        .all()
+    )
+    if all_attempts and questions:
+        q_stats = {q.id: {"wrong": 0, "total": 0, "text": q.text} for q in questions}
+        for att in all_attempts:
+            rows = db.query(StudentAnswer).filter(StudentAnswer.attempt_id == att.id).all()
+            cmap = {r.question_id: r.answer_id for r in rows}
+            for q in questions:
+                q_stats[q.id]["total"] += 1
+                cid = cmap.get(q.id)
+                chosen = next((a for a in q.answers if a.id == cid), None) if cid else None
+                if not (chosen and chosen.is_correct):
+                    q_stats[q.id]["wrong"] += 1
+        hardest = max(
+            q_stats.values(),
+            key=lambda s: (s["wrong"] / s["total"] if s["total"] else 0),
+        )
+        hardest_text = hardest["text"]
+
+    return StudentAttemptDetail(
+        attempt_id=attempt.id,
+        test_id=attempt.test_id,
+        test_title=test.title if test else "Без названия",
+        score=attempt.score,
+        total=total,
+        percent=percent,
+        leave_count=attempt.leave_count or 0,
+        hidden_seconds=attempt.hidden_seconds or 0,
+        wrong_answers=wrong_answers,
+        hardest_question_text=hardest_text,
+    )
+
+
+@app.get("/api/teacher/tests", response_model=list[JournalTestItem])
+def teacher_tests(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    tests = (
+        db.query(Test)
+        .filter(Test.creator_id == user.id)
+        .order_by(Test.id.desc())
+        .all()
+    )
+    if not tests:
+        return []
+
+    test_ids = [t.id for t in tests]
+    q_counts = dict(
+        db.query(Question.test_id, func.count(Question.id))
+        .filter(Question.test_id.in_(test_ids))
+        .group_by(Question.test_id)
+        .all()
+    )
+    a_counts = dict(
+        db.query(TestAttempt.test_id, func.count(TestAttempt.id))
+        .filter(
+            TestAttempt.test_id.in_(test_ids),
+            TestAttempt.score.isnot(None),
+        )
+        .group_by(TestAttempt.test_id)
+        .all()
+    )
+
+    return [
+        JournalTestItem(
+            test_id=t.id,
+            title=t.title or "Без названия",
+            access_code=t.access_code or "",
+            question_count=q_counts.get(t.id, 0),
+            attempt_count=a_counts.get(t.id, 0),
+        )
+        for t in tests
+    ]
+
+
+@app.get("/api/teacher/tests/{test_id}/analytics", response_model=TestAnalytics)
+def teacher_test_analytics(
+    test_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    test = db.query(Test).filter(Test.id == test_id, Test.creator_id == user.id).first()
+    if not test:
+        raise HTTPException(404, "Тест не найден")
+
+    questions = (
+        db.query(Question)
+        .options(joinedload(Question.answers))
+        .filter(Question.test_id == test_id)
+        .order_by(Question.order_number, Question.id)
+        .all()
+    )
+    total_q = len(questions)
+
+    attempts = (
+        db.query(models.TestAttempt)
+        .filter(
+            models.TestAttempt.test_id == test_id,
+            models.TestAttempt.score.isnot(None),
+        )
+        .all()
+    )
+
+    q_stats = {
+        q.id: {"correct": 0, "wrong": 0, "text": q.text, "answers": q.answers}
+        for q in questions
+    }
+
+    students_out = []
+    score_sum = 0
+    for att in attempts:
+        student = db.query(User).filter(User.id == att.student_id).first()
+        percent = (att.score / total_q * 100) if total_q and att.score is not None else None
+        if percent is not None:
+            score_sum += percent
+
+        students_out.append(JournalStudentScore(
+            student_id=att.student_id,
+            username=student.username if student else "—",
+            score=att.score,
+            total=total_q,
+            percent=percent,
+            leave_count=att.leave_count or 0,
+            hidden_seconds=att.hidden_seconds or 0,
+            attempt_id=att.id,
+        ))
+
+        rows = (
+            db.query(StudentAnswer)
+            .filter(StudentAnswer.attempt_id == att.id)
+            .all()
+        )
+        cmap = {r.question_id: r.answer_id for r in rows}
+        for q in questions:
+            cid = cmap.get(q.id)
+            chosen = next((a for a in q.answers if a.id == cid), None) if cid else None
+            if chosen and chosen.is_correct:
+                q_stats[q.id]["correct"] += 1
+            else:
+                q_stats[q.id]["wrong"] += 1
+
+    question_stats = []
+    for qid, s in q_stats.items():
+        tot = s["correct"] + s["wrong"]
+        pct = (s["correct"] / tot * 100) if tot else 0.0
+        question_stats.append(QuestionStat(
+            question_id=qid,
+            text=s["text"],
+            correct_count=s["correct"],
+            wrong_count=s["wrong"],
+            total_answers=tot,
+            correct_percent=round(pct, 1),
+        ))
+
+    hardest = None
+    if question_stats:
+        hardest = min(question_stats, key=lambda x: x.correct_percent)
+
+    avg_percent = round(score_sum / len(attempts), 1) if attempts else None
+    students_out.sort(key=lambda s: s.username.lower())
+
+    return TestAnalytics(
+        test_id=test.id,
+        title=test.title or "Без названия",
+        question_count=total_q,
+        attempt_count=len(attempts),
+        avg_percent=avg_percent,
+        hardest_question=hardest,
+        questions=question_stats,
+        students=students_out,
+    )
+
 
 @app.get("/history_page")
 def history_page():
     return FileResponse("frontend/history_page.html")
+
+
+@app.get("/journal_page")
+def journal_page():
+    return FileResponse("frontend/journal_page.html")
