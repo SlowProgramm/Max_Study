@@ -12,7 +12,7 @@ from sqlalchemy import (
 
 from sqlalchemy.orm import relationship
 from backend.database import Base
-
+from sqlalchemy import func
 
 # Пользователи MAX
 class User(Base):
@@ -155,14 +155,41 @@ class StudentAnswer(Base):
 # Одна строка = «ученик student_id состоит в классе учителя teacher_id».
 # username здесь не дублируется — он берётся из users по student_id
 # (так он не устареет, если человек сменит имя в MAX).
-class ClassStudent(Base):
-    __tablename__ = "class_students"
+# Класс (например, «10-А»), принадлежит учителю
+class Class(Base):
+    __tablename__ = "classes"
 
     id = Column(Integer, primary_key=True)
+
+    name = Column(String(100), nullable=False)
 
     teacher_id = Column(
         Integer,
         ForeignKey("users.id"),
+        nullable=False,
+        index=True
+    )
+
+    created_at = Column(DateTime, server_default=func.now())
+
+    teacher = relationship("User", foreign_keys=[teacher_id])
+
+    members = relationship(
+        "ClassMember",
+        back_populates="class_",
+        cascade="all, delete-orphan"
+    )
+
+
+# Ученик в классе
+class ClassMember(Base):
+    __tablename__ = "class_members"
+
+    id = Column(Integer, primary_key=True)
+
+    class_id = Column(
+        Integer,
+        ForeignKey("classes.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
@@ -174,11 +201,12 @@ class ClassStudent(Base):
         index=True
     )
 
-    # Ученик не может быть добавлен к одному учителю дважды.
+    joined_at = Column(DateTime, server_default=func.now())
+
+    # Один ученик не может быть в одном классе дважды
     __table_args__ = (
-        UniqueConstraint("teacher_id", "student_id", name="uq_class_teacher_student"),
+        UniqueConstraint("class_id", "student_id", name="uq_class_member"),
     )
 
-    teacher = relationship("User", foreign_keys=[teacher_id])
-
+    class_ = relationship("Class", back_populates="members")
     student = relationship("User", foreign_keys=[student_id])
