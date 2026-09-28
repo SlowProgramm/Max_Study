@@ -80,6 +80,8 @@ class Test(Base):
     title = Column(String)
     description = Column(Text)
     access_code = Column(String)
+    # Ограничение времени на весь тест в минутах (None = без ограничения)
+    time_limit_minutes = Column(Integer, nullable=True)
     questions = relationship(
         "Question",
         back_populates="test"

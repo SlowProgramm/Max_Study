@@ -136,6 +136,8 @@ class TestPublic(BaseModel):
 
     description: str | None
 
+    time_limit_minutes: int | None = None
+
     questions: list[QuestionPublic] = []
 
 
@@ -178,6 +180,9 @@ class SaveTestRequest(BaseModel):
 
     # Устарело: создатель берётся из проверенных данных MAX, значение игнорируется.
     creator_id: int | None = None
+
+    # Ограничение времени на весь тест в минутах (None / 0 = без ограничения)
+    time_limit_minutes: int | None = None
 
     questions: list[QuestionSave]
 

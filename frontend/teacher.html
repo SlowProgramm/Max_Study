@@ -187,6 +187,26 @@ MAX Study
 <br>
 
 
+<label>
+Ограничение времени (минуты, 0 = без ограничения):
+</label>
+
+
+<br>
+
+
+<input
+        id="timeLimit"
+        type="number"
+        min="0"
+        value="0"
+        placeholder="0 = без ограничения"
+>
+
+
+<br>
+
+
 <button onclick="generateTest()">
 
     Сгенерировать
@@ -703,6 +723,8 @@ function deleteAnswer(
 
 async function saveTest(){
 
+    const timeLimitRaw = Number(document.getElementById("timeLimit").value);
+    const timeLimit = (timeLimitRaw > 0) ? timeLimitRaw : null;
 
     const response =
     await maxFetch(
@@ -725,6 +747,7 @@ async function saveTest(){
                 title:
                 generatedTest.title,
 
+                time_limit_minutes: timeLimit,
 
                 questions:
                 generatedTest.questions
@@ -752,6 +775,10 @@ async function saveTest(){
 
 
 
+    const timeInfo = result.time_limit_minutes
+        ? `<p>⏱ Время на тест: <b>${result.time_limit_minutes} мин.</b></p>`
+        : `<p>⏱ Ограничение времени: нет</p>`;
+
     document
     .getElementById("testResult")
     .innerHTML = `
@@ -776,6 +803,7 @@ async function saveTest(){
 
         </div>
 
+        ${timeInfo}
 
         <p>
         Скопируйте этот код и отправьте ученикам

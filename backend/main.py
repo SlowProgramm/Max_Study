@@ -320,10 +320,16 @@ def save_test(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    # 0 или None считаем как "без ограничения"
+    time_limit = data.time_limit_minutes
+    if time_limit is not None and time_limit <= 0:
+        time_limit = None
+
     test = Test(
         title=data.title,
         creator_id=user.id,
         access_code=generate_code(),
+        time_limit_minutes=time_limit,
     )
     db.add(test)
     db.commit()
@@ -353,6 +359,7 @@ def save_test(
         "message": "Тест создан",
         "test_id": test.id,
         "code": test.access_code,
+        "time_limit_minutes": test.time_limit_minutes,
     }
 
 
@@ -462,6 +469,7 @@ def start_test(
         "attempt_id": attempt.id,
         "test_id": test.id,
         "student_id": user.id,
+        "time_limit_minutes": test.time_limit_minutes,
     }
 
 
