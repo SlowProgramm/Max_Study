@@ -386,7 +386,7 @@ def get_current_user(
 ) -> User:
     return user_from_init_data(x_max_init_data, db)
 
-# s
+
 @app.post("/auth/max", response_model=UserResponse)
 def auth_max(data: MaxAuthRequest, db: Session = Depends(get_db)):
     return user_from_init_data(data.init_data, db)
@@ -1424,9 +1424,89 @@ def public_config():
     }
 
 
+
+@app.get("/api/teacher/tests/{test_id}/manage")
+def teacher_test_manage(
+    test_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Карточка теста для учителя: код, QR-данные, статус, время."""
+    test = db.query(Test).filter(Test.id == test_id, Test.creator_id == user.id).first()
+    if not test:
+        raise HTTPException(404, "Тест не найден")
+    qcount = db.query(Question).filter(Question.test_id == test.id).count()
+    attempts = (
+        db.query(TestAttempt)
+        .filter(TestAttempt.test_id == test.id, TestAttempt.score.isnot(None))
+        .count()
+    )
+    created = None
+    try:
+        if getattr(test, "created_at", None):
+            created = test.created_at.strftime("%d.%m.%Y %H:%M")
+    except Exception:
+        pass
+    return {
+        "test_id": test.id,
+        "title": test.title or "Без названия",
+        "description": test.description,
+        "access_code": test.access_code or "",
+        "is_draft": bool(getattr(test, "is_draft", False)),
+        "time_limit_seconds": resolve_time_limit_seconds(test),
+        "question_count": qcount,
+        "attempt_count": attempts,
+        "created_at": created,
+        "deep_link_payload": f"test_{test.access_code}" if test.access_code else None,
+    }
+
+
+@app.get("/api/teacher/my-tests")
+def teacher_my_tests(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Все тесты учителя: черновики и опубликованные."""
+    tests = (
+        db.query(Test)
+        .filter(Test.creator_id == user.id)
+        .order_by(Test.id.desc())
+        .all()
+    )
+    out = []
+    for te in tests:
+        created = None
+        try:
+            if getattr(te, "created_at", None):
+                created = te.created_at.strftime("%d.%m.%Y")
+        except Exception:
+            pass
+        out.append({
+            "test_id": te.id,
+            "title": te.title or "Без названия",
+            "description": te.description,
+            "access_code": te.access_code or "",
+            "is_draft": bool(getattr(te, "is_draft", False)),
+            "time_limit_seconds": resolve_time_limit_seconds(te),
+            "created_at": created,
+        })
+    return out
+
+
 @app.get("/drafts_page")
 def drafts_page():
     return FileResponse("frontend/drafts_page.html")
+
+
+@app.get("/my_tests")
+def my_tests_page():
+    return FileResponse("frontend/drafts_page.html")
+
+
+@app.get("/teacher_test")
+def teacher_test_page():
+    return FileResponse("frontend/teacher_test.html")
+
 
 
 @app.get("/test_entry")

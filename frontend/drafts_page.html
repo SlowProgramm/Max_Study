@@ -6,150 +6,98 @@
   <script src="https://st.max.ru/js/max-web-app.js"></script>
   <script src="/static/max-auth.js"></script>
   <link rel="stylesheet" href="/static/style.css">
-  <title>Черновики</title>
+  <title>Мои тесты</title>
   <style>
     body { max-width: 720px; margin: 0 auto; padding: 16px 14px 48px; }
-    .draft {
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tabs button {
+      flex: 1; background: #e5e7eb; color: #111; padding: 10px;
+    }
+    .tabs button.active { background: #4c8bf5; color: #fff; }
+    .item {
       background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
-      padding: 14px; margin-bottom: 12px;
+      padding: 14px; margin-bottom: 10px; cursor: pointer;
     }
-    .draft h3 { margin: 0 0 6px; font-size: 16px; }
-    .draft .meta { color: #6b7280; font-size: 13px; margin-bottom: 10px; }
-    .draft .code {
-      font-size: 22px; font-weight: 700; letter-spacing: 3px;
-      margin: 8px 0; text-align: center;
+    .item:hover { border-color: #93c5fd; }
+    .item h3 { margin: 0 0 6px; font-size: 16px; }
+    .item .meta { color: #6b7280; font-size: 13px; }
+    .badge {
+      display: inline-block; font-size: 11px; font-weight: 600;
+      padding: 2px 8px; border-radius: 999px; margin-left: 6px;
+      vertical-align: middle;
     }
-    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
-    .actions button { flex: 1; min-width: 120px; font-size: 14px; padding: 10px; }
-    #qrModal {
-      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85);
-      z-index: 100; align-items: center; justify-content: center; flex-direction: column;
-      padding: 20px;
-    }
-    #qrModal.show { display: flex; }
-    #qrModal img { max-width: min(320px, 90vw); background: #fff; padding: 16px; border-radius: 12px; }
-    #qrModal .code-big { color: #fff; font-size: 28px; font-weight: 700; letter-spacing: 4px; margin: 16px 0 8px; }
-    #qrModal button { margin-top: 16px; }
+    .badge.draft { background: #fef3c7; color: #92400e; }
+    .badge.live { background: #dcfce7; color: #166534; }
   </style>
 </head>
 <body>
   <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button>
-  <h1>Черновики</h1>
-  <p class="subtitle">Заготовленные тесты. Можно уведомить класс или показать QR.</p>
+  <h1>Мои тесты</h1>
+  <p class="subtitle">Черновики (запланированные) и опубликованные — откройте карточку для QR и уведомления.</p>
+
+  <div class="tabs">
+    <button type="button" class="active" id="tabDraft" onclick="setTab('draft')">Запланированные</button>
+    <button type="button" id="tabLive" onclick="setTab('live')">Опубликованные</button>
+  </div>
   <div id="list"><p class="muted">Загрузка...</p></div>
 
-  <div id="qrModal" onclick="if(event.target===this)closeQr()">
-    <img id="qrImg" alt="QR">
-    <div class="code-big" id="qrCode"></div>
-    <p id="qrHint" style="color:#ccc;text-align:center;margin:0">Наведите камеру на QR</p>
-    <button class="ghost" onclick="closeQr()">Закрыть</button>
-  </div>
-
 <script>
+let _all = [];
+let _tab = "draft";
+
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 }
 function fmtTime(sec) {
   if (!sec) return "без ограничения";
   const m = Math.floor(sec / 60), s = sec % 60;
-  if (m && s) return `${m} мин ${s} сек`;
-  if (m) return `${m} мин`;
-  return `${s} сек`;
-}
-let _botUsername = "";
-
-async function loadPublicConfig() {
-  try {
-    const r = await fetch("/api/public-config");
-    const d = await r.json();
-    _botUsername = (d.bot_username || "").replace(/^@/, "");
-  } catch (e) {}
+  if (m && s) return m + " мин " + s + " сек";
+  if (m) return m + " мин";
+  return s + " сек";
 }
 
-/** Диплинк MAX — открывает мини-приложение внутри MAX, не браузер */
-function maxEntryUrl(code) {
-  if (_botUsername) {
-    return "https://max.ru/" + _botUsername + "?startapp=test_" + encodeURIComponent(code);
+function setTab(tab) {
+  _tab = tab;
+  document.getElementById("tabDraft").classList.toggle("active", tab === "draft");
+  document.getElementById("tabLive").classList.toggle("active", tab === "live");
+  render();
+}
+
+function render() {
+  const box = document.getElementById("list");
+  const items = _all.filter(t => _tab === "draft" ? t.is_draft : !t.is_draft);
+  if (!items.length) {
+    box.innerHTML = _tab === "draft"
+      ? '<p class="muted">Нет запланированных. Сохраните тест как черновик при создании.</p>'
+      : '<p class="muted">Нет опубликованных тестов.</p>';
+    return;
   }
-  // fallback, если username бота не задан в env
-  return location.origin + "/test_entry?code=" + encodeURIComponent(code);
+  box.innerHTML = items.map(d => `
+    <div class="item" onclick="location.href='/teacher_test?id=${d.test_id}'">
+      <h3>
+        ${escapeHtml(d.title)}
+        <span class="badge ${d.is_draft ? "draft" : "live"}">${d.is_draft ? "черновик" : "опубликован"}</span>
+      </h3>
+      <div class="meta">
+        ${d.created_at ? escapeHtml(d.created_at) + " · " : ""}
+        код ${escapeHtml(d.access_code)} · ⏱ ${fmtTime(d.time_limit_seconds)}
+      </div>
+    </div>
+  `).join("");
 }
 
-function showQr(code) {
-  const url = maxEntryUrl(code);
-  document.getElementById("qrImg").src =
-    "https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=" + encodeURIComponent(url);
-  document.getElementById("qrCode").textContent = code;
-  document.getElementById("qrModal").classList.add("show");
-  const hint = document.getElementById("qrHint");
-  if (hint) {
-    hint.textContent = _botUsername
-      ? "Отсканируйте в камере — откроется MAX"
-      : "Задайте MAX_BOT_USERNAME в Railway, чтобы QR открывал MAX";
-  }
-}
-function closeQr() {
-  document.getElementById("qrModal").classList.remove("show");
-}
-
-async function loadDrafts() {
+async function load() {
   const box = document.getElementById("list");
   try {
-    const res = await maxFetch("/api/teacher/drafts");
+    const res = await maxFetch("/api/teacher/my-tests");
     if (!res.ok) throw new Error(maxErrorText(res.status, await res.json().catch(() => ({}))));
-    const items = await res.json();
-    if (!items.length) {
-      box.innerHTML = '<p class="muted">Черновиков нет. Сохраните тест как черновик при создании.</p>';
-      return;
-    }
-    box.innerHTML = items.map(d => `
-      <div class="draft">
-        <h3>${escapeHtml(d.title)}</h3>
-        <div class="meta">
-          ${d.created_at ? escapeHtml(d.created_at) + " · " : ""}
-          ⏱ ${fmtTime(d.time_limit_seconds)}
-          ${d.description ? "<br>" + escapeHtml(d.description) : ""}
-        </div>
-        <div class="code">${escapeHtml(d.access_code)}</div>
-        <div class="actions">
-          <button onclick="notifyDraft(${d.test_id})">📢 Уведомить класс</button>
-          <button class="ghost" onclick="showQr('${escapeHtml(d.access_code)}')">QR-код</button>
-          <button class="ghost" onclick="navigator.clipboard.writeText('${escapeHtml(d.access_code)}');alert('Код скопирован')">Копировать код</button>
-          <button class="success" onclick="publishDraft(${d.test_id})">Опубликовать</button>
-        </div>
-      </div>
-    `).join("");
+    _all = await res.json();
+    render();
   } catch (e) {
     box.innerHTML = `<p class="muted" style="color:#dc2626">${escapeHtml(e.message)}</p>`;
   }
 }
-
-async function notifyDraft(id) {
-  if (!confirm("Отправить уведомление всем ученикам ваших классов и опубликовать тест?")) return;
-  try {
-    const res = await maxFetch(`/api/teacher/tests/${id}/notify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Ошибка");
-    alert(`Отправлено: ${data.sent} из ${data.total}`);
-    loadPublicConfig().then(loadDrafts);
-  } catch (e) { alert(e.message); }
-}
-
-async function publishDraft(id) {
-  try {
-    const res = await maxFetch(`/api/teacher/tests/${id}/publish`, { method: "POST" });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Ошибка");
-    alert("Тест опубликован. Код: " + data.code);
-    loadPublicConfig().then(loadDrafts);
-  } catch (e) { alert(e.message); }
-}
-
-loadPublicConfig().then(loadDrafts);
+load();
 </script>
 </body>
 </html>

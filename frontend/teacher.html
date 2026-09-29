@@ -672,17 +672,22 @@ async function saveTest(asDraft = false, notify = false) {
             ? `<p>📢 Уведомления: ${result.notify.sent} из ${result.notify.total}</p>`
             : "";
 
+        // После сохранения — карточка теста (QR, код, уведомление всегда доступны)
+        if (result.test_id && !result.is_draft) {
+            location.href = "/teacher_test?id=" + result.test_id;
+            return;
+        }
+
         document.getElementById("testResult").innerHTML = `
         <div class="result">
-            <h2>${result.is_draft ? "💾 Черновик" : "✅ Тест готов"}</h2>
+            <h2>💾 Запланирован</h2>
             ${draftInfo}
             <p>Код для учеников:</p>
             <div class="code">${result.code}</div>
             ${timeInfo}
-            ${notifyInfo}
             <p style="margin-top:12px">
-              <a href="/drafts_page">Черновики</a> ·
-              <a href="/test_entry?code=${result.code}">Страница входа</a>
+              <a href="/teacher_test?id=${result.test_id}">Открыть карточку (QR)</a> ·
+              <a href="/my_tests">Мои тесты</a>
             </p>
         </div>`;
     } catch (e) {

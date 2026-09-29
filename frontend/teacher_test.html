@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://st.max.ru/js/max-web-app.js"></script>
+  <script src="/static/max-auth.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+  <title>Тест</title>
+  <style>
+    body { max-width: 520px; margin: 0 auto; padding: 16px 14px 48px; }
+    .card {
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 14px;
+      padding: 20px 16px; margin-bottom: 14px;
+    }
+    .badge {
+      display: inline-block; font-size: 12px; font-weight: 600;
+      padding: 4px 10px; border-radius: 999px; margin-bottom: 10px;
+    }
+    .badge.draft { background: #fef3c7; color: #92400e; }
+    .badge.live { background: #dcfce7; color: #166534; }
+    h1 { font-size: 22px; margin: 0 0 8px; }
+    .desc { color: #4b5563; font-size: 15px; line-height: 1.45; margin: 0 0 14px; white-space: pre-wrap; }
+    .row-info {
+      display: flex; flex-direction: column; gap: 8px; margin: 12px 0 16px;
+    }
+    .row-info div {
+      background: #f3f4f6; border-radius: 10px; padding: 12px 14px; font-size: 15px;
+    }
+    .code {
+      font-size: 28px; font-weight: 700; letter-spacing: 4px;
+      text-align: center; margin: 8px 0 16px;
+    }
+    .actions { display: flex; flex-direction: column; gap: 8px; }
+    .actions button { width: 100%; }
+    #qrModal {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.88);
+      z-index: 100; align-items: center; justify-content: center; flex-direction: column;
+      padding: 20px;
+    }
+    #qrModal.show { display: flex; }
+    #qrModal img { max-width: min(300px, 88vw); background: #fff; padding: 16px; border-radius: 12px; }
+    #qrModal .code-big { color: #fff; font-size: 26px; font-weight: 700; letter-spacing: 4px; margin: 14px 0 6px; }
+  </style>
+</head>
+<body>
+  <button class="back" id="backBtn" onclick="location.href='/my_tests'">← К тестам</button>
+  <div id="box"><p class="muted">Загрузка...</p></div>
+
+  <div id="qrModal" onclick="if(event.target===this)closeQr()">
+    <img id="qrImg" alt="QR">
+    <div class="code-big" id="qrCode"></div>
+    <p id="qrHint" style="color:#ccc;text-align:center;margin:0">Отсканируйте — откроется MAX</p>
+    <button class="ghost" style="margin-top:14px" onclick="closeQr()">Закрыть</button>
+  </div>
+
+<script>
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+function fmtTime(sec) {
+  if (!sec) return "без ограничения";
+  const m = Math.floor(sec / 60), s = sec % 60;
+  if (m && s) return m + " мин " + s + " сек";
+  if (m) return m + " мин";
+  return s + " сек";
+}
+
+let _botUsername = "";
+let _test = null;
+
+async function loadPublicConfig() {
+  try {
+    const r = await fetch("/api/public-config");
+    const d = await r.json();
+    _botUsername = (d.bot_username || "").replace(/^@/, "");
+  } catch (e) {}
+}
+
+function maxEntryUrl(code) {
+  if (_botUsername) {
+    return "https://max.ru/" + _botUsername + "?startapp=test_" + encodeURIComponent(code);
+  }
+  return location.origin + "/test_entry?code=" + encodeURIComponent(code);
+}
+
+function showQr() {
+  if (!_test) return;
+  const code = _test.access_code;
+  const url = maxEntryUrl(code);
+  document.getElementById("qrImg").src =
+    "https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=" + encodeURIComponent(url);
+  document.getElementById("qrCode").textContent = code;
+  document.getElementById("qrHint").textContent = _botUsername
+    ? "Отсканируйте камерой — откроется MAX"
+    : "Задайте MAX_BOT_USERNAME, чтобы QR открывал MAX";
+  document.getElementById("qrModal").classList.add("show");
+}
+function closeQr() {
+  document.getElementById("qrModal").classList.remove("show");
+}
+
+async function notify() {
+  if (!_test) return;
+  if (!confirm("Отправить уведомление ученикам ваших классов?")) return;
+  try {
+    const res = await maxFetch("/api/teacher/tests/" + _test.test_id + "/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Ошибка");
+    alert("Отправлено: " + data.sent + " из " + data.total);
+    load();
+  } catch (e) { alert(e.message); }
+}
+
+async function publish() {
+  if (!_test) return;
+  try {
+    const res = await maxFetch("/api/teacher/tests/" + _test.test_id + "/publish", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Ошибка");
+    alert("Тест опубликован");
+    load();
+  } catch (e) { alert(e.message); }
+}
+
+async function load() {
+  const params = new URLSearchParams(location.search);
+  const id = params.get("id");
+  const box = document.getElementById("box");
+  if (!id) {
+    box.innerHTML = '<p class="muted">Не указан id теста</p>';
+    return;
+  }
+  try {
+    const res = await maxFetch("/api/teacher/tests/" + id + "/manage");
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || "Ошибка " + res.status);
+    _test = d;
+
+    const badge = d.is_draft
+      ? '<span class="badge draft">Черновик / запланирован</span>'
+      : '<span class="badge live">Опубликован</span>';
+
+    box.innerHTML = `
+      <div class="card">
+        ${badge}
+        <h1>${escapeHtml(d.title)}</h1>
+        ${d.description ? `<p class="desc">${escapeHtml(d.description)}</p>` : ""}
+        <div class="row-info">
+          <div>📝 Вопросов: <b>${d.question_count}</b></div>
+          <div>⏱ Время: <b>${fmtTime(d.time_limit_seconds)}</b></div>
+          <div>📊 Сдач: <b>${d.attempt_count}</b></div>
+          ${d.created_at ? `<div>📅 ${escapeHtml(d.created_at)}</div>` : ""}
+        </div>
+        <p class="muted" style="text-align:center;margin:0">Код для входа</p>
+        <div class="code">${escapeHtml(d.access_code)}</div>
+        <div class="actions">
+          <button onclick="showQr()">📱 Показать QR</button>
+          <button class="ghost" onclick="navigator.clipboard.writeText('${escapeHtml(d.access_code)}');alert('Код скопирован')">Копировать код</button>
+          <button class="success" onclick="notify()">📢 Уведомить класс</button>
+          ${d.is_draft ? `<button onclick="publish()">Опубликовать</button>` : ""}
+          ${!d.is_draft ? `<button class="ghost" onclick="location.href='/journal_page#test=${d.test_id}'">Аналитика</button>` : ""}
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    box.innerHTML = `<p class="muted" style="color:#dc2626">${escapeHtml(e.message)}</p>`;
+  }
+}
+
+loadPublicConfig().then(load);
+</script>
+</body>
+</html>
