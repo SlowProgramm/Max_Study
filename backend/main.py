@@ -1081,6 +1081,24 @@ def teacher_gradebook(
             .all()
         )
 
+    # даты создания (день.месяц) — отдельным запросом, чтобы не падать без колонки
+    created_map = {}
+    if test_ids:
+        try:
+            from sqlalchemy import text as sa_text
+            ids_sql = ",".join(str(int(i)) for i in test_ids)
+            rows = db.execute(
+                sa_text(f"SELECT id, created_at FROM tests WHERE id IN ({ids_sql})")
+            ).fetchall()
+            for rid, cdt in rows:
+                if cdt is not None:
+                    try:
+                        created_map[rid] = cdt.strftime("%d.%m")
+                    except Exception:
+                        created_map[rid] = str(cdt)[8:10] + "." + str(cdt)[5:7] if len(str(cdt)) >= 10 else None
+        except Exception:
+            db.rollback()
+
     test_items = [
         JournalTestItem(
             test_id=t.id,
@@ -1088,7 +1106,7 @@ def teacher_gradebook(
             access_code=t.access_code or "",
             question_count=q_counts.get(t.id, 0),
             attempt_count=a_counts.get(t.id, 0),
-            created_at=None,
+            created_at=created_map.get(t.id),
         )
         for t in tests
     ]
@@ -1139,6 +1157,7 @@ def teacher_gradebook(
         students_out.append(GradebookStudent(
             student_id=st.id,
             username=short_name(st.username),
+            max_id=st.max_id,
             scores=scores,
         ))
 

@@ -86,6 +86,8 @@
             color: #fff;
         }
         button.btn:hover { background: #1d4ed8; }
+        button.btn.danger { background: #dc2626; }
+        button.btn.danger:hover { background: #b91c1c; }
 
         /* ─── Список учеников ─── */
         .class-block {
@@ -215,22 +217,31 @@
             <h2>Добавить ученика по MAX ID</h2>
             <div class="row">
                 <input id="maxId" type="number" placeholder="MAX ID ученика" />
-                <select id="classSelect"></select>
+                <select id="classSelectAdd"></select>
                 <button class="btn" onclick="addStudent()">Добавить</button>
             </div>
             <p class="muted" style="margin: 8px 0 0;">
                 Ученик должен сначала написать боту команду <code>/id</code>.
             </p>
         </div>
+
+        <div class="card">
+            <h2>Удалить ученика по MAX ID</h2>
+            <div class="row">
+                <input id="removeMaxId" type="number" placeholder="MAX ID для удаления" />
+                <select id="classSelectRemove"></select>
+                <button class="btn danger" onclick="removeStudentByMaxId()">Удалить</button>
+            </div>
+            <p class="muted" style="margin: 8px 0 0;">
+                Чтобы не удалить по ошибке — нужно явно ввести MAX ID ученика.
+            </p>
+        </div>
     </div>
 
-    <!-- Список классов с учениками -->
-    <div id="classes"></div>
-
-    <!-- Оценки по тестам -->
+    <!-- Единая таблица: ученики и оценки -->
     <div class="grades-section" id="gradesSection">
         <h2>Оценки за тесты</h2>
-        <div id="grades"><p class="muted">Загрузка оценок...</p></div>
+        <div id="grades"><p class="muted">Загрузка...</p></div>
     </div>
 
     <script>
@@ -251,8 +262,6 @@
             btn.classList.toggle("open");
             panel.classList.toggle("open");
             editMode = panel.classList.contains("open");
-            // перерисовать список, чтобы показать/скрыть «Удалить»
-            loadClasses();
         }
 
         async function api(path, opts = {}) {
@@ -273,58 +282,30 @@
             return data;
         }
 
-        async function loadClasses() {
-            const classes = await api("/classes");
-            const container = document.getElementById("classes");
-            const select = document.getElementById("classSelect");
-
-            select.innerHTML = "";
-            if (classes.length === 0) {
-                const opt = document.createElement("option");
-                opt.textContent = "— нет классов —";
-                opt.value = "";
-                select.appendChild(opt);
-            } else {
-                for (const c of classes) {
+        function fillClassSelects(classes) {
+            for (const selId of ["classSelectAdd", "classSelectRemove"]) {
+                const select = document.getElementById(selId);
+                if (!select) continue;
+                select.innerHTML = "";
+                if (!classes.length) {
                     const opt = document.createElement("option");
-                    opt.value = c.id;
-                    opt.textContent = `${c.name} (${c.student_count})`;
+                    opt.textContent = "— нет классов —";
+                    opt.value = "";
                     select.appendChild(opt);
+                } else {
+                    for (const c of classes) {
+                        const opt = document.createElement("option");
+                        opt.value = c.id;
+                        opt.textContent = `${c.name} (${c.student_count})`;
+                        select.appendChild(opt);
+                    }
                 }
             }
+        }
 
-            container.innerHTML = "";
-            if (classes.length === 0) {
-                container.innerHTML = '<p class="empty">Пока нет ни одного класса. Нажмите «Редактировать класс», чтобы создать.</p>';
-                return;
-            }
-
-            for (const c of classes) {
-                const students = await api(`/classes/${c.id}/students`);
-                const block = document.createElement("div");
-                block.className = "class-block";
-                block.innerHTML = `
-                    <h2>
-                        <span>${escapeHtml(c.name)}</span>
-                        <span class="count">${students.length} чел.</span>
-                    </h2>
-                    <ul class="students">
-                        ${students.length === 0
-                            ? '<li class="empty">Нет учеников</li>'
-                            : students.map(s => `
-                                <li>
-                                    <span>
-                                        <span class="student-name">${escapeHtml(shortName(s.username))}</span>
-                                        <span class="student-meta">max_id: ${s.max_id}</span>
-                                    </span>
-                                    ${editMode ? `<button class="danger" onclick="removeStudent(${c.id}, ${s.id})">Удалить</button>` : ""}
-                                </li>
-                            `).join("")
-                        }
-                    </ul>
-                `;
-                container.appendChild(block);
-            }
+        async function loadClasses() {
+            const classes = await api("/classes");
+            fillClassSelects(classes);
         }
 
         async function createClass() {
@@ -338,14 +319,14 @@
                 });
                 input.value = "";
                 showMsg("Класс создан");
-                loadClasses();
-                loadGrades();
+                await loadClasses();
+                await loadGrades();
             } catch (e) { showMsg(e.message, false); }
         }
 
         async function addStudent() {
             const maxIdInput = document.getElementById("maxId");
-            const classSelect = document.getElementById("classSelect");
+            const classSelect = document.getElementById("classSelectAdd");
             const max_id = parseInt(maxIdInput.value, 10);
             const class_id = parseInt(classSelect.value, 10);
 
@@ -359,23 +340,37 @@
                 });
                 maxIdInput.value = "";
                 showMsg("Ученик добавлен");
-                loadClasses();
-                loadGrades();
+                await loadClasses();
+                await loadGrades();
             } catch (e) { showMsg(e.message, false); }
         }
 
-        async function removeStudent(classId, studentId) {
-            if (!confirm("Удалить ученика из класса?")) return;
+        async function removeStudentByMaxId() {
+            const maxIdInput = document.getElementById("removeMaxId");
+            const classSelect = document.getElementById("classSelectRemove");
+            const max_id = parseInt(maxIdInput.value, 10);
+            const class_id = parseInt(classSelect.value, 10);
+
+            if (!max_id) return showMsg("Введите MAX ID ученика", false);
+            if (!class_id) return showMsg("Выберите класс", false);
+
             try {
-                await api(`/classes/${classId}/students/${studentId}`, { method: "DELETE" });
+                const students = await api(`/classes/${class_id}/students`);
+                const student = students.find(s => Number(s.max_id) === max_id);
+                if (!student) {
+                    return showMsg("Ученик с таким MAX ID не найден в выбранном классе", false);
+                }
+                if (!confirm(`Удалить ученика max_id ${max_id} (${student.username}) из класса?`)) return;
+
+                await api(`/classes/${class_id}/students/${student.id}`, { method: "DELETE" });
+                maxIdInput.value = "";
                 showMsg("Ученик удалён");
-                loadClasses();
-                loadGrades();
+                await loadClasses();
+                await loadGrades();
             } catch (e) { showMsg(e.message, false); }
         }
 
-
-                function shortName(name) {
+        function shortName(name) {
             const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
             if (!parts.length) return "—";
             if (parts.length >= 2) {
@@ -405,19 +400,30 @@
                     throw new Error(detail || ("Ошибка " + res.status));
                 }
                 const data = await res.json();
-                if (!data.tests || !data.tests.length) {
-                    box.innerHTML = '<p class="empty">Нет созданных тестов — оценки появятся после публикаций.</p>';
+                if (!data.students || !data.students.length) {
+                    box.innerHTML = '<p class="empty">Нет учеников в классах. Добавьте учеников в «Редактировать класс».</p>';
                     return;
                 }
-                if (!data.students || !data.students.length) {
-                    box.innerHTML = '<p class="empty">Нет учеников в классах.</p>';
+                if (!data.tests || !data.tests.length) {
+                    // ученики есть, тестов нет — покажем хотя бы список ФИО
+                    box.innerHTML = `<div class="grades-wrap"><table class="grades-table">
+                        <thead><tr><th class="name-col">ФИО</th><th>MAX ID</th></tr></thead>
+                        <tbody>
+                        ${data.students.map(st => `
+                            <tr>
+                                <td class="name-col">${escapeHtml(st.username)}</td>
+                                <td class="score-none">${st.max_id ?? "—"}</td>
+                            </tr>
+                        `).join("")}
+                        </tbody></table></div>
+                        <p class="muted" style="margin-top:8px">Тестов пока нет — оценки появятся после публикаций.</p>`;
                     return;
                 }
 
                 const head = data.tests.map(t =>
                     `<th class="test-head" title="${escapeHtml(t.title)}"
                         onclick="location.href='/journal_page#test=${t.test_id}'">
-                        ${escapeHtml(t.title.length > 18 ? t.title.slice(0, 16) + "…" : t.title)}
+                        ${escapeHtml(t.title.length > 16 ? t.title.slice(0, 14) + "…" : t.title)}
                         ${t.created_at ? `<div style="font-weight:400;color:#6b7280;font-size:11px">${escapeHtml(t.created_at)}</div>` : ""}
                     </th>`
                 ).join("");
@@ -431,7 +437,10 @@
                         return `<td class="${scoreClass(sc.percent)}">${sc.score}/${sc.total}${pct != null ? ` <small>(${pct}%)</small>` : ""}</td>`;
                     }).join("");
                     return `<tr>
-                        <td class="name-col">${escapeHtml(st.username)}</td>
+                        <td class="name-col">
+                            ${escapeHtml(st.username)}
+                            <div style="font-weight:400;color:#9ca3af;font-size:11px">${st.max_id ?? ""}</div>
+                        </td>
                         ${cells}
                     </tr>`;
                 }).join("");
@@ -440,7 +449,7 @@
                     <thead><tr><th class="name-col">ФИО</th>${head}</tr></thead>
                     <tbody>${rows}</tbody>
                 </table></div>
-                <p class="muted" style="margin-top:8px">Нажмите на название теста, чтобы открыть подробную аналитику.</p>`;
+                <p class="muted" style="margin-top:8px">Нажмите на название теста, чтобы открыть аналитику. Дата под названием — день.месяц создания.</p>`;
             } catch (e) {
                 box.innerHTML = `<p class="empty" style="color:#dc2626">${escapeHtml(e.message)}</p>`;
             }

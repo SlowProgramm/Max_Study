@@ -414,6 +414,7 @@ class GradebookScore(BaseModel):
 class GradebookStudent(BaseModel):
     student_id: int
     username: str
+    max_id: int | None = None
     scores: list[GradebookScore] = []
 
 
