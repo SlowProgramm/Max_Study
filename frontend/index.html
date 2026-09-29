@@ -1,27 +1,58 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <script src="https://st.max.ru/js/max-web-app.js"></script> <script src="/static/max-auth.js"></script> <link rel="stylesheet" href="/static/style.css"> <title> MAX Study</title>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://st.max.ru/js/max-web-app.js"></script>
+  <script src="/static/max-auth.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+  <title>MAX Study</title>
 </head>
-<body> <div class="center-page" id="menu"> <h1> MAX Study</h1> <p class="subtitle"> Выберите роль</p> <div class="menu-stack"> <button class="teacher" onclick="location.href='/teacher_page'"> Я учитель</button> <button class="student" onclick="location.href='/student_page'"> Я ученик</button> </div> </div>
+<body>
+  <div class="center-page" id="menu">
+    <h1>MAX Study</h1>
+    <p class="subtitle">Выберите роль</p>
+    <div class="menu-stack">
+      <button class="teacher" onclick="location.href='/teacher_page'">Я учитель</button>
+      <button class="student" onclick="location.href='/student_page'">Я ученик</button>
+    </div>
+  </div>
 <script>
 (function routeByStartParam() {
-  // payload кнопки бота / диплинка QR: startapp=...
   var p = "";
   try { p = (window.maxStartParam && window.maxStartParam()) || ""; } catch (e) {}
   if (!p) return;
+  p = String(p);
 
-  // test_XXXXXX → страница входа на тест
-  var m = String(p).match(/^test_([A-Za-z0-9]+)$/i);
+  // test_XXXXXX → вход на тест
+  var m = p.match(/^test_([A-Za-z0-9]+)$/i);
   if (m) {
     location.replace("/test_entry?code=" + encodeURIComponent(m[1].toUpperCase()));
+    return;
+  }
+
+  // teacher_test_<id>
+  m = p.match(/^teacher_test_(\d+)$/i);
+  if (m) {
+    location.replace("/teacher_test?id=" + encodeURIComponent(m[1]));
+    return;
+  }
+
+  // journal_test_<id>
+  m = p.match(/^journal_test_(\d+)$/i);
+  if (m) {
+    location.replace("/journal_page#test=" + encodeURIComponent(m[1]));
     return;
   }
 
   var map = {
     "teacher_class": "/class_page",
     "teacher_create_test": "/teacher.html",
+    "teacher_my_tests": "/my_tests",
+    "teacher_analytics": "/analytics_page",
     "student_take_test": "/student.html",
     "student_create_test": "/student.html",
+    "student_history": "/history_page",
     "smart_notes": "/smart_notes.html"
   };
   if (map[p]) location.replace(map[p]);

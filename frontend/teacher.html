@@ -173,7 +173,7 @@
         }
     </style> </head> <body> <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button> <h1> Создание теста</h1> <div class="form-card"> <label for="topic"> Тема</label> <input id="topic" type="text" placeholder="Например: Фотосинтез"> <label for="count"> Количество вопросов</label> <input id="count" type="number" value="5" min="1" max="20"> <label for="timeMin"> Время на тест</label> <div class="row" style="margin-bottom:12px"> <input id="timeMin" type="number" min="0" value="0" placeholder="мин" style="flex:1"> <span style="color:#6b7280"> мин</span> <input id="timeSec" type="number" min="0" max="59" value="0" placeholder="сек" style="flex:1"> <span style="color:#6b7280"> сек</span> </div> <label for="description"> Описание (для страницы входа)</label> <textarea id="description" placeholder="Необязательно: о чём тест, что взять с собой…"></textarea> <div class="form-actions"> <button id="generateBtn" onclick="generateTest()"> Сгенерировать</button> </div>
 </div> <div id="loadingBox" class="loading-box"> <div class="spinner"></div> <p> Генерируем тест… Это может занять до минуты</p>
-</div> <div id="editor"></div> <div class="editor-actions" id="editorActions" style="display:none"> <button id="addQuestionButton" class="ghost" onclick="addQuestion()">+ Добавить вопрос</button> <button id="draftButton" class="ghost" onclick="saveTest(true, false)"> В черновики</button> <button id="saveButton" onclick="saveTest(false, false)"> Опубликовать</button> <button id="saveNotifyButton" class="success" onclick="saveTest(false, true)"> Опубликовать и уведомить</button>
+</div> <div id="editor"></div> <div class="editor-actions" id="editorActions" style="display:none"> <button id="addQuestionButton" class="ghost" onclick="addQuestion()">+ Добавить вопрос</button> <button id="draftButton" class="ghost" onclick="saveTest(true, false)"> В черновики</button> <button id="saveButton" onclick="saveTest(false, false)"> Опубликовать</button>
 </div> <div id="testResult"></div> <script> let generatedTest = null;
 
 
@@ -523,8 +523,7 @@ function deleteAnswer(
 async function saveTest(asDraft = false, notify = false) {
     const saveBtn = document.getElementById("saveButton");
     const draftBtn = document.getElementById("draftButton");
-    const notifyBtn = document.getElementById("saveNotifyButton");
-    [saveBtn, draftBtn, notifyBtn].forEach(b => { if (b) b.disabled = true; });
+    [saveBtn, draftBtn].forEach(b => { if (b) b.disabled = true; });
     if (saveBtn) saveBtn.textContent = asDraft ? "Сохраняем…" : "Публикуем…";
 
     const timeMin = Number(document.getElementById("timeMin")?.value || 0);
@@ -568,14 +567,16 @@ async function saveTest(asDraft = false, notify = false) {
         }
 
         document.getElementById("testResult").innerHTML = `
-        <div class="result"> <h2> Запланирован</h2> ${draftInfo}
-            <p> Код для учеников:</p> <div class="code">${result.code}</div> ${timeInfo}
-            <p style="margin-top:12px"> <a href="/teacher_test?id=${result.test_id}"> Открыть карточку (QR)</a> ·
-              <a href="/my_tests"> Мои тесты</a> </p> </div>`;
+        <div class="result"> <h2>Запланирован</h2> ${draftInfo}
+            <p>Код для учеников:</p> <div class="code">${result.code}</div> ${timeInfo}
+            <p style="margin-top:12px"> <a href="/teacher_test?id=${result.test_id}">Открыть карточку (QR)</a> ·
+              <a href="/my_tests">Мои тесты</a> </p> </div>`;
+        const tr = document.getElementById("testResult");
+        if (tr) setTimeout(() => tr.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
     } catch (e) {
         alert("Ошибка: " + e.message);
     } finally {
-        [saveBtn, draftBtn, notifyBtn].forEach(b => { if (b) b.disabled = false; });
+        [saveBtn, draftBtn].forEach(b => { if (b) b.disabled = false; });
         if (saveBtn) saveBtn.textContent = "Опубликовать";
     }
 }

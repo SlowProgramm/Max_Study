@@ -284,9 +284,22 @@ function renderAnalytics(data) {
     document.getElementById("chartBox").innerHTML = data.questions.map((q, i) => {
         const tot = q.total_answers || 1;
         const okW = (q.correct_count / tot * 100);
-        const label = `В${i + 1}`;
         return `
-            <div class="bar-row" title="${escapeHtml(q.text)}"> <div class="bar-label">${label}: ${escapeHtml(q.text.slice(0, 40))}${q.text.length > 40 ? "…" : ""}</div> <div class="bar-track"> <div class="bar-ok" style="width:${okW}%"></div> </div> <div class="bar-pct">${q.correct_percent}%</div> </div> `;
+            <div class="q-stat-item" style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #f3f4f6">
+                <div style="font-size:14px;font-weight:600;margin-bottom:6px;line-height:1.35">
+                    ${i + 1}. ${escapeHtml(q.text)}
+                </div>
+                <div style="font-size:12px;color:#6b7280;margin-bottom:6px">
+                    Верно: ${q.correct_count} · Ошибки: ${q.wrong_count} · Всего ответов: ${q.total_answers}
+                </div>
+                <div class="bar-row" style="margin:0">
+                    <div class="bar-track" style="flex:1">
+                        <div class="bar-ok" style="width:${okW}%"></div>
+                    </div>
+                    <div class="bar-pct">${q.correct_percent}%</div>
+                </div>
+            </div>
+        `;
     }).join("");
 }
 
