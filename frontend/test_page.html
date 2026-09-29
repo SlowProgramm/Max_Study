@@ -69,22 +69,36 @@
 
         .answer-option {
             display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 14px;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 14px;
             border: 1px solid #e5e7eb;
-            border-radius: 8px;
+            border-radius: 10px;
             margin-bottom: 8px;
             background: #fff;
             cursor: pointer;
             transition: border-color 0.15s, background 0.15s;
+            text-align: left;
         }
         .answer-option:hover { border-color: #93c5fd; }
         .answer-option.selected {
             border-color: #2563eb;
             background: #eff6ff;
         }
-        .answer-option input { margin: 0; }
+        .answer-option input {
+            margin: 3px 0 0 0;
+            flex-shrink: 0;
+            width: 20px;
+            height: 20px;
+            accent-color: #2563eb;
+        }
+        .answer-option span {
+            flex: 1;
+            min-width: 0;
+            font-size: 16px;
+            line-height: 1.4;
+            word-break: break-word;
+        }
 
         .nav-row {
             display: flex;

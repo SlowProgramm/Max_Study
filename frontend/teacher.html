@@ -18,121 +18,177 @@
 
 
     <style>
-
         body {
-            font-family: Arial, sans-serif;
-            max-width: 900px;
-            margin: 40px auto;
-            padding: 0 15px;
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 16px 14px 48px;
         }
+        h1 { font-size: 22px; margin: 0 0 16px; }
+        h2 { font-size: 18px; margin: 16px 0 10px; }
+        h3 { font-size: 15px; margin: 0 0 8px; }
+        h4 { font-size: 14px; margin: 12px 0 8px; color: #374151; }
 
-
-        input {
-
-            width: 90%;
-            padding: 8px;
-            margin: 5px;
-
+        .form-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
         }
-
-
-        button {
-
-            padding: 10px 15px;
-            margin: 5px;
-            cursor: pointer;
-
+        .form-card label { margin-top: 0; }
+        .form-card input[type="text"],
+        .form-card input[type="number"] {
+            width: 100%;
+            margin: 0 0 12px;
         }
+        .form-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 4px;
+        }
+        .form-actions button { flex: 1; min-width: 140px; }
 
+        /* loader */
+        .loading-box {
+            display: none;
+            text-align: center;
+            padding: 28px 16px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 12px;
+            margin: 16px 0;
+        }
+        .loading-box.show { display: block; }
+        .spinner {
+            width: 36px; height: 36px;
+            border: 3px solid #bfdbfe;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            margin: 0 auto 12px;
+            animation: spin .8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-box p { margin: 0; color: #1e40af; font-size: 15px; }
 
         .question {
-
-            border: 1px solid #ddd;
+            background: #fff;
+            border: 1px solid #e5e7eb;
             border-radius: 12px;
-
-            padding: 20px;
-            margin-bottom: 20px;
-
+            padding: 14px;
+            margin-bottom: 14px;
+        }
+        .q-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .q-head h3 { margin: 0; }
+        .q-head .delete {
+            background: #fee2e2;
+            color: #b91c1c;
+            padding: 6px 10px;
+            font-size: 13px;
+            flex-shrink: 0;
         }
 
+        .question input[type="text"],
+        .question textarea {
+            width: 100%;
+            margin: 0 0 8px;
+        }
 
+        /* answers */
         .answer {
-
             display: flex;
             align-items: center;
-            gap: 10px;
-
-            margin: 10px 0;
-            padding: 8px;
-
-            border-radius: 8px;
-
+            gap: 8px;
+            margin: 8px 0;
+            padding: 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #fafafa;
         }
-
-
-        .selected-answer {
-
-            background: #d9ffd9;
-
+        .answer.selected-answer {
+            background: #ecfdf5;
+            border-color: #6ee7b7;
         }
-
-
-        .correct-answer {
-
-            display: flex;
-            align-items: center;
-            gap: 5px;
-
-            white-space: nowrap;
-
-        }
-
-
-        .correct-answer input {
-
+        .answer input[type="text"] {
+            flex: 1;
+            min-width: 0;
+            margin: 0;
             width: auto;
-
+        }
+        .answer .delete {
+            background: #fee2e2;
+            color: #b91c1c;
+            padding: 8px 10px;
+            font-size: 13px;
+            flex-shrink: 0;
         }
 
-
-        .delete {
-
-            background: #ffd6d6;
-
+        /* correct toggle */
+        .correct-toggle {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+            font-size: 13px;
+            color: #6b7280;
+            padding: 4px 0;
+        }
+        .correct-toggle input {
+            width: 20px;
+            height: 20px;
+            margin: 0;
+            accent-color: #16a34a;
+            cursor: pointer;
+        }
+        .answer.selected-answer .correct-toggle {
+            color: #15803d;
+            font-weight: 600;
         }
 
-
-        .save {
-
-            background: #caffca;
-
+        .editor-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 8px;
         }
-
+        .editor-actions button { width: 100%; }
+        #saveButton {
+            background: #16a34a;
+            color: #fff;
+        }
+        #saveButton:hover { background: #15803d; }
 
         .result {
-
-            margin-top: 30px;
-
+            margin-top: 20px;
             padding: 20px;
-
             border-radius: 12px;
-
-            background: #eeeeee;
-
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            text-align: center;
         }
-
-
         .code {
-
-            font-size: 40px;
-
-            font-weight: bold;
-
-            letter-spacing: 5px;
-
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            margin: 12px 0;
+            word-break: break-all;
         }
 
-
+        @media (min-width: 560px) {
+            .editor-actions {
+                flex-direction: row;
+            }
+            .editor-actions button { width: auto; flex: 1; }
+        }
     </style>
 
 
@@ -145,106 +201,32 @@
 
 <h1>Создание теста</h1>
 
+<div class="form-card">
+    <label for="topic">Тема</label>
+    <input id="topic" type="text" placeholder="Например: Фотосинтез">
 
-<h2>
-Создание теста
-</h2>
+    <label for="count">Количество вопросов</label>
+    <input id="count" type="number" value="5" min="1" max="20">
 
+    <label for="timeLimit">Время (минуты, 0 = без ограничения)</label>
+    <input id="timeLimit" type="number" min="0" value="0" placeholder="0 = без ограничения">
 
+    <div class="form-actions">
+        <button id="generateBtn" onclick="generateTest()">Сгенерировать</button>
+    </div>
+</div>
 
-<label>
-Тема:
-</label>
-
-
-<br>
-
-
-<input
-        id="topic"
-        placeholder="Например: Фотосинтез"
->
-
-
-<br>
-
-
-<label>
-Количество вопросов:
-</label>
-
-
-<br>
-
-
-<input
-        id="count"
-        type="number"
-        value="5"
->
-
-
-<br>
-
-
-<label>
-Ограничение времени (минуты, 0 = без ограничения):
-</label>
-
-
-<br>
-
-
-<input
-        id="timeLimit"
-        type="number"
-        min="0"
-        value="0"
-        placeholder="0 = без ограничения"
->
-
-
-<br>
-
-
-<button onclick="generateTest()">
-
-    Сгенерировать
-
-</button>
-
-
-
-<hr>
-
-
+<div id="loadingBox" class="loading-box">
+    <div class="spinner"></div>
+    <p>Генерируем тест… Это может занять до минуты</p>
+</div>
 
 <div id="editor"></div>
 
-
-
-<button
-        id="addQuestionButton"
-        style="display:none"
-        onclick="addQuestion()"
->
-
-    + Добавить вопрос
-
-</button>
-
-
-
-<button
-        id="saveButton"
-        class="save"
-        style="display:none"
-        onclick="saveTest()"
->
-
-    Опубликовать тест
-
-</button>
+<div class="editor-actions">
+    <button id="addQuestionButton" class="ghost" style="display:none" onclick="addQuestion()">+ Добавить вопрос</button>
+    <button id="saveButton" style="display:none" onclick="saveTest()">Опубликовать тест</button>
+</div>
 
 
 
@@ -262,6 +244,15 @@ let generatedTest = null;
 
 
 async function generateTest(){
+    const genBtn = document.getElementById("generateBtn");
+    const loading = document.getElementById("loadingBox");
+    if (genBtn) { genBtn.disabled = true; genBtn.textContent = "Генерация…"; }
+    if (loading) loading.classList.add("show");
+    document.getElementById("editor").innerHTML = "";
+    document.getElementById("saveButton").style.display = "none";
+    document.getElementById("addQuestionButton").style.display = "none";
+
+
 
 
     const topic =
@@ -280,52 +271,37 @@ async function generateTest(){
 
 
 
-    const response =
-        await fetch("/generate-test",
-            {
-
-                method:"POST",
-
-                headers:{
-                    "Content-Type":"application/json"
-                },
-
-
-                body:JSON.stringify({
-
-                    mode:"topic",
-
-                    topic:topic,
-
-                    question_count:count
-
-                })
-
-            }
-        );
-
-
-
-    generatedTest = await response.json();
-    if (generatedTest.questions) {
-        generatedTest.questions.forEach(q => {
-            if (q.explanation == null) q.explanation = "";
+    try {
+        const response = await fetch("/generate-test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                mode: "topic",
+                topic: topic,
+                question_count: count
+            })
         });
+
+        generatedTest = await response.json();
+
+        if (!response.ok || generatedTest.error) {
+            alert(generatedTest.error || generatedTest.detail || "Ошибка генерации");
+            return;
+        }
+        if (generatedTest.questions) {
+            generatedTest.questions.forEach(q => {
+                if (q.explanation == null) q.explanation = "";
+            });
+        }
+        renderEditor();
+        document.getElementById("saveButton").style.display = "block";
+        document.getElementById("addQuestionButton").style.display = "block";
+    } catch (e) {
+        alert("Ошибка сети: " + (e.message || e));
+    } finally {
+        if (loading) loading.classList.remove("show");
+        if (genBtn) { genBtn.disabled = false; genBtn.textContent = "Сгенерировать"; }
     }
-    renderEditor();
-
-
-
-    document
-    .getElementById("saveButton")
-    .style.display="block";
-
-
-    document
-    .getElementById("addQuestionButton")
-    .style.display="block";
-
-
 }
 
 
@@ -360,29 +336,11 @@ function renderEditor(){
 
 
         let html = `
-
-
         <div class="question">
-
-
-        <h3>
-        Вопрос ${index+1}
-        </h3>
-
-
-
-        <button
-        class="delete"
-        onclick="deleteQuestion(${index})"
-        >
-
-        Удалить вопрос
-
-        </button>
-
-
-
-        <br>
+        <div class="q-head">
+            <h3>Вопрос ${index + 1}</h3>
+            <button class="delete" onclick="deleteQuestion(${index})">Удалить</button>
+        </div>
 
 
 
@@ -410,81 +368,18 @@ function renderEditor(){
 
 
             html += `
-
-
-            <div class="answer
-            ${answer.is_correct ? "selected-answer":""}
-            ">
-
-
-
-            <input
-
-            value="${answer.text}"
-
-            onchange="
-            updateAnswerText(
-                ${index},
-                ${answerIndex},
-                this.value
-            )
-            "
-
-            >
-
-
-
-            <label class="correct-answer">
-
-
-            <input
-
-            type="radio"
-
-            name="correct_${index}"
-
-            ${answer.is_correct ? "checked":""}
-
-
-            onchange="
-            updateCorrect(
-                ${index},
-                ${answerIndex}
-            )
-            "
-
-            >
-
-
-            правильный
-
-
-            </label>
-
-
-
-            <button
-
-            class="delete"
-
-            onclick="
-            deleteAnswer(
-                ${index},
-                ${answerIndex}
-            )
-            "
-
-            >
-
-            Удалить
-
-            </button>
-
-
-
+            <div class="answer ${answer.is_correct ? "selected-answer" : ""}">
+                <label class="correct-toggle" title="Отметить правильным">
+                    <input type="radio" name="correct_${index}"
+                        ${answer.is_correct ? "checked" : ""}
+                        onchange="updateCorrect(${index}, ${answerIndex})">
+                    <span>✓</span>
+                </label>
+                <input type="text" value="${escAttr(answer.text)}"
+                    onchange="updateAnswerText(${index}, ${answerIndex}, this.value)"
+                    placeholder="Вариант ответа">
+                <button class="delete" onclick="deleteAnswer(${index}, ${answerIndex})">✕</button>
             </div>
-
-
             `;
 
 
@@ -729,6 +624,9 @@ function deleteAnswer(
 
 
 async function saveTest(){
+    const saveBtn = document.getElementById("saveButton");
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Публикуем…"; }
+
 
     const timeLimitRaw = Number(document.getElementById("timeLimit").value);
     const timeLimit = (timeLimitRaw > 0) ? timeLimitRaw : null;
@@ -773,11 +671,9 @@ async function saveTest(){
 
 
     if(!response.ok){
-
         alert(maxErrorText(response.status, result));
-
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Опубликовать тест"; }
         return;
-
     }
 
 
