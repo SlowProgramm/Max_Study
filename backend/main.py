@@ -116,18 +116,27 @@ def generate_code():
 
 def short_name(username: str | None) -> str:
     """
-    'Иван Иванов' → 'Иванов И.'
+    'Иван Иванов' / 'Иванов Иван' → 'Иванов И.'
     'гриша' / одно слово → 'Гриша' (с заглавной)
     """
     parts = [p for p in (username or "").strip().split() if p]
     if not parts:
         return "—"
     if len(parts) >= 2:
-        first = parts[0]
-        last = parts[-1]
+        # Если передали «Фамилия Имя» — фамилия первая
+        last = parts[0]
+        first = parts[1]
         return f"{last.capitalize()} {first[0].upper()}."
     # одно слово — просто имя с заглавной
     return parts[0][:1].upper() + parts[0][1:]
+
+
+def display_student_name(user: User | None) -> str:
+    """Предпочитает full_name (ФИО из /id), иначе username из MAX."""
+    if not user:
+        return "—"
+    name = (getattr(user, "full_name", None) or user.username or "").strip()
+    return short_name(name) if name else "—"
 
 
 def read_cheat_stats(db: Session, attempt_id: int) -> tuple[int, int]:
@@ -249,6 +258,7 @@ def notify_students_about_test(
     teacher_id: int,
     test,
     class_id: int | None = None,
+    class_ids: list[int] | None = None,
     request: Request | None = None,
 ) -> dict:
     code = test.access_code
@@ -265,8 +275,14 @@ def notify_students_about_test(
         .join(Class, Class.id == ClassMember.class_id)
         .filter(Class.teacher_id == teacher_id)
     )
-    if class_id:
-        q = q.filter(Class.id == class_id)
+    # Приоритет: class_ids (список) > class_id (один) > все классы
+    ids = None
+    if class_ids:
+        ids = [int(x) for x in class_ids if x is not None]
+    elif class_id is not None:
+        ids = [int(class_id)]
+    if ids:
+        q = q.filter(Class.id.in_(ids))
     students = q.distinct().all()
 
     time_s = resolve_time_limit_seconds(test)
@@ -529,6 +545,11 @@ def save_test(
     total_sec = compute_time_limit_seconds(data.time_limit_minutes, data.time_limit_seconds)
     time_limit_min = (total_sec // 60) if total_sec else None
 
+    # max_attempts: 1 по умолчанию; 0 / None = без лимита
+    max_att = data.max_attempts
+    if max_att is None:
+        max_att = 1
+
     test = Test(
         title=data.title,
         description=data.description,
@@ -537,6 +558,7 @@ def save_test(
         time_limit_minutes=time_limit_min,
         time_limit_seconds=total_sec,
         is_draft=bool(data.is_draft),
+        max_attempts=max_att,
     )
     db.add(test)
     db.commit()
@@ -564,7 +586,12 @@ def save_test(
 
     notify_result = None
     if data.notify and not test.is_draft:
-        notify_result = notify_students_about_test(db, user.id, test, data.class_id, request=request)
+        notify_result = notify_students_about_test(
+            db, user.id, test,
+            class_id=data.class_id,
+            class_ids=getattr(data, "class_ids", None),
+            request=request,
+        )
 
     return {
         "message": "Черновик сохранён" if test.is_draft else "Тест создан",
@@ -675,6 +702,27 @@ def start_test(
         return {"error": "Тест не найден"}
     if getattr(test, "is_draft", False):
         raise HTTPException(404, "Тест ещё не опубликован")
+
+    # По умолчанию одна попытка (max_attempts=1). 0 или None = без лимита.
+    max_att = getattr(test, "max_attempts", 1)
+    if max_att is None:
+        max_att = 1
+    if max_att > 0:
+        done_count = (
+            db.query(models.TestAttempt)
+            .filter(
+                models.TestAttempt.test_id == test.id,
+                models.TestAttempt.student_id == user.id,
+                models.TestAttempt.score.isnot(None),
+            )
+            .count()
+        )
+        if done_count >= max_att:
+            raise HTTPException(
+                403,
+                f"Вы уже проходили этот тест (лимит: {max_att} "
+                f"{'попытка' if max_att == 1 else 'попытки' if max_att < 5 else 'попыток'}).",
+            )
 
     attempt = models.TestAttempt(
         test_id=test.id,
@@ -1152,7 +1200,7 @@ def teacher_test_analytics(
 
         students_out.append(JournalStudentScore(
             student_id=att.student_id,
-            username=short_name(student.username if student else None),
+            username=display_student_name(student),
             score=att.score,
             total=total_q,
             percent=percent,
@@ -1318,7 +1366,7 @@ def teacher_gradebook(
             ))
         students_out.append(GradebookStudent(
             student_id=st.id,
-            username=short_name(st.username),
+            username=display_student_name(st),
             max_id=st.max_id,
             scores=scores,
         ))
@@ -1393,7 +1441,13 @@ def notify_test(
         test.is_draft = False
         db.commit()
     class_id = data.class_id if data else None
-    result = notify_students_about_test(db, user.id, test, class_id, request=request)
+    class_ids = data.class_ids if data else None
+    result = notify_students_about_test(
+        db, user.id, test,
+        class_id=class_id,
+        class_ids=class_ids,
+        request=request,
+    )
     return {"message": "Уведомления отправлены", **result}
 
 

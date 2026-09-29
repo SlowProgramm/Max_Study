@@ -196,6 +196,9 @@ class SaveTestRequest(BaseModel):
     notify: bool = False
     # опционально: конкретный class_id; если None — все классы учителя
     class_id: int | None = None
+    class_ids: list[int] | None = None
+    # Макс. попыток (1 по умолчанию; 0 или null = без лимита)
+    max_attempts: int | None = 1
 
     questions: list[QuestionSave]
 
@@ -479,7 +482,10 @@ class DraftTestItem(BaseModel):
 
 
 class NotifyTestRequest(BaseModel):
+    # Один класс (обратная совместимость)
     class_id: int | None = None
+    # Несколько классов: если задан — уведомляются только они
+    class_ids: list[int] | None = None
 
 
 class TestEntryInfo(BaseModel):

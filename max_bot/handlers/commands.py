@@ -4,7 +4,11 @@ from maxapi.types import MessageCreated
 from max_bot.bot import dp
 from backend.database import SessionLocal
 from backend.models import User
+
 router = Router()
+
+# max_id пользователей, от которых ждём ФИО после /id
+pending_fio: set[int] = set()
 
 
 @router.message_created(Command("help"))
@@ -13,7 +17,7 @@ async def help_handler(event: MessageCreated):
         "Доступные команды:\n\n"
         "/start — открыть мини-приложение MAX Study\n"
         "/help — этот список команд\n"
-        "/id — показать ваш ID (нужен преподавателю, чтобы добавить вас в класс)"
+        "/id — показать ваш ID и указать ФИО (нужно преподавателю, чтобы добавить вас в класс)"
     )
 
 
@@ -42,6 +46,7 @@ async def id_handler(event: MessageCreated):
         elif user.username != name:
             user.username = name
         db.commit()
+        has_fio = bool(getattr(user, "full_name", None))
     finally:
         db.close()
 
@@ -50,3 +55,18 @@ async def id_handler(event: MessageCreated):
         f"ID этого чата: {chat.chat_id}\n\n"
         f"Передайте свой ID преподавателю, чтобы он добавил вас в класс."
     )
+
+    # Следующим сообщением просим Фамилию Имя
+    pending_fio.add(max_id)
+    if has_fio:
+        await event.message.answer(
+            "ФИО уже сохранено. Чтобы изменить — напишите заново в формате:\n"
+            "<b>Фамилия Имя</b>\n"
+            "Например: <i>Иванов Иван</i>"
+        )
+    else:
+        await event.message.answer(
+            "Пожалуйста, напишите вашу <b>Фамилию и Имя</b> следующим сообщением.\n"
+            "Например: <i>Иванов Иван</i>\n\n"
+            "Это нужно, чтобы преподаватель видел вас в журнале по ФИО."
+        )

@@ -41,6 +41,32 @@
     #qrModal.show { display: flex; }
     #qrModal img { max-width: min(300px, 88vw); background: #fff; padding: 16px; border-radius: 12px; }
     #qrModal .code-big { color: #fff; font-size: 26px; font-weight: 700; letter-spacing: 4px; margin: 14px 0 6px; }
+
+    /* Модалка выбора классов */
+    #notifyModal {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55);
+      z-index: 110; align-items: flex-end; justify-content: center;
+      padding: 0;
+    }
+    #notifyModal.show { display: flex; }
+    .notify-sheet {
+      background: #fff; border-radius: 16px 16px 0 0; width: 100%; max-width: 520px;
+      max-height: 80vh; overflow: auto; padding: 20px 16px 28px;
+      box-shadow: 0 -4px 24px rgba(0,0,0,.12);
+    }
+    .notify-sheet h2 { font-size: 18px; margin: 0 0 6px; }
+    .notify-sheet .sub { color: #6b7280; font-size: 14px; margin: 0 0 14px; }
+    .class-check {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 10px; border: 1px solid #e5e7eb; border-radius: 10px;
+      margin-bottom: 8px; cursor: pointer; background: #fafafa;
+    }
+    .class-check:has(input:checked) { border-color: #4c8bf5; background: #eaf1ff; }
+    .class-check input { width: 20px; height: 20px; flex-shrink: 0; }
+    .class-check span { font-size: 15px; }
+    .class-check .cnt { color: #6b7280; font-size: 13px; }
+    .notify-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+    .notify-actions button { width: 100%; }
   </style>
 </head>
 <body>
@@ -52,6 +78,18 @@
     <div class="code-big" id="qrCode"></div>
     <p id="qrHint" style="color:#ccc;text-align:center;margin:0">Отсканируйте — откроется MAX</p>
     <button class="ghost" style="margin-top:14px" onclick="closeQr()">Закрыть</button>
+  </div>
+
+  <div id="notifyModal" onclick="if(event.target===this)closeNotifyModal()">
+    <div class="notify-sheet">
+      <h2>📢 Кому отправить уведомление?</h2>
+      <p class="sub">Выберите один или несколько классов. Если ничего не выбрать — всем вашим классам.</p>
+      <div id="classList"><p class="muted">Загрузка классов…</p></div>
+      <div class="notify-actions">
+        <button class="success" id="notifySendBtn" onclick="sendNotify()">Отправить</button>
+        <button class="ghost" onclick="closeNotifyModal()">Отмена</button>
+      </div>
+    </div>
   </div>
 
 <script>
@@ -100,20 +138,62 @@ function closeQr() {
   document.getElementById("qrModal").classList.remove("show");
 }
 
-async function notify() {
+async function openNotifyModal() {
   if (!_test) return;
-  if (!confirm("Отправить уведомление ученикам ваших классов?")) return;
+  const list = document.getElementById("classList");
+  list.innerHTML = "<p class=\"muted\">Загрузка классов…</p>";
+  document.getElementById("notifyModal").classList.add("show");
+  try {
+    const res = await maxFetch("/api/class/classes");
+    const classes = await res.json();
+    if (!res.ok) throw new Error(classes.detail || "Не удалось загрузить классы");
+    if (!classes.length) {
+      list.innerHTML = "<p class=\"muted\">У вас пока нет классов. Добавьте учеников на странице «Классы».</p>";
+      return;
+    }
+    list.innerHTML = classes.map(c => `
+      <label class="class-check">
+        <input type="checkbox" name="cls" value="${c.id}" checked>
+        <span>${escapeHtml(c.name)} <span class="cnt">· ${c.student_count || 0} уч.</span></span>
+      </label>
+    `).join("");
+  } catch (e) {
+    list.innerHTML = `<p class="muted" style="color:#dc2626">${escapeHtml(e.message)}</p>`;
+  }
+}
+
+function closeNotifyModal() {
+  document.getElementById("notifyModal").classList.remove("show");
+}
+
+async function sendNotify() {
+  if (!_test) return;
+  const checked = [...document.querySelectorAll('#classList input[name="cls"]:checked')]
+    .map(el => Number(el.value))
+    .filter(Boolean);
+  const body = checked.length ? { class_ids: checked } : {};
+  const btn = document.getElementById("notifySendBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Отправка…"; }
   try {
     const res = await maxFetch("/api/teacher/tests/" + _test.test_id + "/notify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: "{}",
+      body: JSON.stringify(body),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Ошибка");
+    closeNotifyModal();
     alert("Отправлено: " + data.sent + " из " + data.total);
     load();
-  } catch (e) { alert(e.message); }
+  } catch (e) {
+    alert(e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Отправить"; }
+  }
+}
+
+function notify() {
+  openNotifyModal();
 }
 
 async function publish() {

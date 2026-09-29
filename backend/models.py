@@ -24,6 +24,9 @@ class User(Base):
 
     username = Column(String, nullable=False)
 
+    # ФИО, которое ученик указывает после /id (Фамилия Имя)
+    full_name = Column(String, nullable=True)
+
 
 # Варианты ответов
 class AnswerOption(Base):
@@ -87,6 +90,8 @@ class Test(Base):
     time_limit_seconds = Column(Integer, nullable=True)
     # Черновик: не опубликован, можно уведомить позже
     is_draft = Column(Boolean, default=False)
+    # Макс. число попыток: 1 по умолчанию; None или 0 = без ограничения
+    max_attempts = Column(Integer, nullable=True, default=1)
     created_at = Column(DateTime, server_default=func.now())
     questions = relationship(
         "Question",
