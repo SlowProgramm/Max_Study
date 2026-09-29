@@ -13,6 +13,7 @@ class Settings:
 
     max_api_key: str = os.getenv("MAX_TOKEN", "")
     app_url: str | None = os.getenv("APP_URL")
+    max_bot_username: str | None = os.getenv("MAX_BOT_USERNAME") or os.getenv("MAX_BOT_NAME")
 
     # Не используются напрямую в коде ниже, но могут понадобиться
     # для других частей проекта — не должны падать, если их нет в .env.

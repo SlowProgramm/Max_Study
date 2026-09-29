@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Header
+from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Header, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -163,18 +163,32 @@ def resolve_time_limit_seconds(test) -> int | None:
     return None
 
 
-def send_max_message(user_max_id: int, text: str, button_url: str | None = None, button_text: str = "Открыть тест") -> bool:
-    """Отправка сообщения ученику через MAX Bot API."""
+def send_max_message(
+    user_max_id: int,
+    text: str,
+    button_url: str | None = None,
+    button_text: str = "Открыть тест",
+) -> bool:
+    """
+    Отправка сообщения ученику через MAX Bot API.
+    Токен тот же, что у бота: MAX_TOKEN (как в max_bot/settings и max_auth).
+    """
     import httpx
     token = os.getenv("MAX_TOKEN", "")
     if not token:
+        print("MAX notify: MAX_TOKEN не задан")
         return False
     payload = {"text": text}
     if button_url:
+        # Обычная HTTPS-ссылка (тот же origin, что у мини-приложения / QR)
         payload["attachments"] = [{
             "type": "inline_keyboard",
             "payload": {
-                "buttons": [[{"type": "link", "text": button_text, "url": button_url}]]
+                "buttons": [[{
+                    "type": "link",
+                    "text": button_text,
+                    "url": button_url,
+                }]]
             }
         }]
     try:
@@ -187,16 +201,63 @@ def send_max_message(user_max_id: int, text: str, button_url: str | None = None,
             json=payload,
             timeout=15,
         )
+        if r.status_code != 200:
+            print("MAX notify status:", r.status_code, r.text[:300])
         return r.status_code == 200
     except Exception as e:
         print("MAX notify error:", e)
         return False
 
 
-def notify_students_about_test(db: Session, teacher_id: int, test, class_id: int | None = None) -> dict:
-    app_url = (os.getenv("APP_URL") or "").rstrip("/")
+
+def bot_username() -> str:
+    """Username бота без @ — для диплинков https://max.ru/<name>?startapp=..."""
+    return (os.getenv("MAX_BOT_USERNAME") or os.getenv("MAX_BOT_NAME") or "").lstrip("@").strip()
+
+
+def max_deep_link(start_payload: str) -> str | None:
+    """
+    Ссылка, которая открывает мини-приложение ВНУТРИ MAX.
+    Формат: https://max.ru/<botName>?startapp=<payload>
+    """
+    name = bot_username()
+    if not name:
+        return None
+    payload = (start_payload or "").strip()
+    if payload:
+        return f"https://max.ru/{name}?startapp={payload}"
+    return f"https://max.ru/{name}?startapp"
+
+
+def resolve_app_base_url(request: Request | None = None) -> str:
+    """
+    Базовый URL мини-приложения — тот же host, что в QR.
+    1) APP_URL из env (если задан)
+    2) иначе origin из текущего HTTP-запроса (Railway / любой хост)
+    """
+    env = (os.getenv("APP_URL") or "").rstrip("/")
+    if env:
+        return env
+    if request is not None:
+        # request.base_url: https://xxx.up.railway.app/
+        return str(request.base_url).rstrip("/")
+    return ""
+
+
+def notify_students_about_test(
+    db: Session,
+    teacher_id: int,
+    test,
+    class_id: int | None = None,
+    request: Request | None = None,
+) -> dict:
     code = test.access_code
-    link = f"{app_url}/test_entry?code={code}" if app_url else f"/test_entry?code={code}"
+    # Диплинк MAX — открывает мини-приложение внутри MAX, не внешний браузер
+    link = max_deep_link(f"test_{code}")
+    if not link:
+        # fallback: https origin мини-приложения (если username бота не задан)
+        app_url = resolve_app_base_url(request)
+        link = f"{app_url}/test_entry?code={code}" if app_url else None
 
     q = (
         db.query(User)
@@ -219,10 +280,12 @@ def notify_students_about_test(db: Session, teacher_id: int, test, class_id: int
         f"{time_line}"
         f"\n🔑 Код: {code}"
     )
+    if link:
+        text += f"\n🔗 {link}"
 
     sent, failed = 0, 0
     for st in students:
-        ok = send_max_message(st.max_id, text, button_url=link if app_url else None)
+        ok = send_max_message(st.max_id, text, button_url=link)
         if ok:
             sent += 1
         else:
@@ -459,6 +522,7 @@ def get_test_by_code(code: str, db: Session = Depends(get_db)):
 @app.post("/tests/save")
 def save_test(
     data: SaveTestRequest,
+    request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -500,7 +564,7 @@ def save_test(
 
     notify_result = None
     if data.notify and not test.is_draft:
-        notify_result = notify_students_about_test(db, user.id, test, data.class_id)
+        notify_result = notify_students_about_test(db, user.id, test, data.class_id, request=request)
 
     return {
         "message": "Черновик сохранён" if test.is_draft else "Тест создан",
@@ -1317,6 +1381,7 @@ def publish_draft(
 @app.post("/api/teacher/tests/{test_id}/notify")
 def notify_test(
     test_id: int,
+    request: Request,
     data: NotifyTestRequest | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -1324,12 +1389,11 @@ def notify_test(
     test = db.query(Test).filter(Test.id == test_id, Test.creator_id == user.id).first()
     if not test:
         raise HTTPException(404, "Тест не найден")
-    # публикация при уведомлении
     if test.is_draft:
         test.is_draft = False
         db.commit()
     class_id = data.class_id if data else None
-    result = notify_students_about_test(db, user.id, test, class_id)
+    result = notify_students_about_test(db, user.id, test, class_id, request=request)
     return {"message": "Уведомления отправлены", **result}
 
 
@@ -1349,6 +1413,15 @@ def test_entry_info(code: str, db: Session = Depends(get_db)):
         time_limit_seconds=resolve_time_limit_seconds(test),
         question_count=qcount,
     )
+
+
+@app.get("/api/public-config")
+def public_config():
+    """Публичные настройки для фронта (username бота для QR/диплинков)."""
+    return {
+        "bot_username": bot_username(),
+        "max_deep_link_base": f"https://max.ru/{bot_username()}" if bot_username() else None,
+    }
 
 
 @app.get("/drafts_page")

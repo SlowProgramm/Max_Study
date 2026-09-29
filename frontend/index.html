@@ -9,7 +9,7 @@
   <title>MAX Study</title>
 </head>
 <body>
-  <div class="center-page">
+  <div class="center-page" id="menu">
     <h1>MAX Study</h1>
     <p class="subtitle">Выберите роль</p>
     <div class="menu-stack">
@@ -17,5 +17,29 @@
       <button class="student" onclick="location.href='/student_page'">Я ученик</button>
     </div>
   </div>
+<script>
+(function routeByStartParam() {
+  // payload кнопки бота / диплинка QR: startapp=...
+  var p = "";
+  try { p = (window.maxStartParam && window.maxStartParam()) || ""; } catch (e) {}
+  if (!p) return;
+
+  // test_XXXXXX → страница входа на тест
+  var m = String(p).match(/^test_([A-Za-z0-9]+)$/i);
+  if (m) {
+    location.replace("/test_entry?code=" + encodeURIComponent(m[1].toUpperCase()));
+    return;
+  }
+
+  var map = {
+    "teacher_class": "/class_page",
+    "teacher_create_test": "/teacher.html",
+    "student_take_test": "/student.html",
+    "student_create_test": "/student.html",
+    "smart_notes": "/smart_notes.html"
+  };
+  if (map[p]) location.replace(map[p]);
+})();
+</script>
 </body>
 </html>

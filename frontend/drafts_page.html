@@ -41,7 +41,7 @@
   <div id="qrModal" onclick="if(event.target===this)closeQr()">
     <img id="qrImg" alt="QR">
     <div class="code-big" id="qrCode"></div>
-    <p style="color:#ccc;text-align:center;margin:0">Наведите камеру на QR</p>
+    <p id="qrHint" style="color:#ccc;text-align:center;margin:0">Наведите камеру на QR</p>
     <button class="ghost" onclick="closeQr()">Закрыть</button>
   </div>
 
@@ -56,15 +56,37 @@ function fmtTime(sec) {
   if (m) return `${m} мин`;
   return `${s} сек`;
 }
-function entryUrl(code) {
+let _botUsername = "";
+
+async function loadPublicConfig() {
+  try {
+    const r = await fetch("/api/public-config");
+    const d = await r.json();
+    _botUsername = (d.bot_username || "").replace(/^@/, "");
+  } catch (e) {}
+}
+
+/** Диплинк MAX — открывает мини-приложение внутри MAX, не браузер */
+function maxEntryUrl(code) {
+  if (_botUsername) {
+    return "https://max.ru/" + _botUsername + "?startapp=test_" + encodeURIComponent(code);
+  }
+  // fallback, если username бота не задан в env
   return location.origin + "/test_entry?code=" + encodeURIComponent(code);
 }
+
 function showQr(code) {
-  const url = entryUrl(code);
+  const url = maxEntryUrl(code);
   document.getElementById("qrImg").src =
     "https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=" + encodeURIComponent(url);
   document.getElementById("qrCode").textContent = code;
   document.getElementById("qrModal").classList.add("show");
+  const hint = document.getElementById("qrHint");
+  if (hint) {
+    hint.textContent = _botUsername
+      ? "Отсканируйте в камере — откроется MAX"
+      : "Задайте MAX_BOT_USERNAME в Railway, чтобы QR открывал MAX";
+  }
 }
 function closeQr() {
   document.getElementById("qrModal").classList.remove("show");
@@ -113,7 +135,7 @@ async function notifyDraft(id) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Ошибка");
     alert(`Отправлено: ${data.sent} из ${data.total}`);
-    loadDrafts();
+    loadPublicConfig().then(loadDrafts);
   } catch (e) { alert(e.message); }
 }
 
@@ -123,11 +145,11 @@ async function publishDraft(id) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Ошибка");
     alert("Тест опубликован. Код: " + data.code);
-    loadDrafts();
+    loadPublicConfig().then(loadDrafts);
   } catch (e) { alert(e.message); }
 }
 
-loadDrafts();
+loadPublicConfig().then(loadDrafts);
 </script>
 </body>
 </html>
