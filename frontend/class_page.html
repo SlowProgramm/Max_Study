@@ -184,7 +184,7 @@
         .grades-section h2 { font-size: 17px; margin: 0 0 10px; }
     </style>
 </head>
-<body> <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button> <h1> Мой класс</h1> <p class="subtitle"> Ученики и классы, которые вы ведёте.</p> <div id="msg" class="msg"></div> <!-- Переключатель --> <button class="edit-toggle" id="editToggle" onclick="toggleEdit()"> <span> Редактировать класс</span> <span class="arrow">▾</span> </button> <!-- Скрываемая панель --> <div class="edit-panel" id="editPanel"> <div class="card"> <h2> Создать класс</h2> <div class="row"> <input id="className" placeholder="Например, 10-А" /> <button class="btn" onclick="createClass()"> Создать</button> </div> </div> <div class="card"> <h2> Добавить ученика по MAX ID</h2> <div class="row"> <input id="maxId" type="number" placeholder="MAX ID ученика" /> <select id="classSelectAdd"></select> <button class="btn" onclick="addStudent()"> Добавить</button> </div> <p class="muted" style="margin: 8px 0 0;"> Ученик должен сначала написать боту команду <code>/id</code>.
+<body> <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button> <h1> Мой класс</h1> <p class="subtitle"> Один класс на учителя (MVP). Пустые классы удаляются автоматически.</p> <div id="msg" class="msg"></div> <!-- Переключатель --> <button class="edit-toggle" id="editToggle" onclick="toggleEdit()"> <span> Редактировать класс</span> <span class="arrow">▾</span> </button> <!-- Скрываемая панель --> <div class="edit-panel" id="editPanel"> <div class="card" id="createClassCard"> <h2> Создать класс</h2> <div class="row"> <input id="className" placeholder="Например, 10-А" /> <button class="btn" onclick="createClass()"> Создать</button> </div> </div> <div class="card"> <h2> Добавить ученика по MAX ID</h2> <div class="row"> <input id="maxId" type="number" placeholder="MAX ID ученика" /> <select id="classSelectAdd"></select> <button class="btn" onclick="addStudent()"> Добавить</button> </div> <p class="muted" style="margin: 8px 0 0;"> Ученик должен сначала написать боту команду <code>/id</code>.
             </p> </div> <div class="card"> <h2> Удалить ученика по MAX ID</h2> <div class="row"> <input id="removeMaxId" type="number" placeholder="MAX ID для удаления" /> <select id="classSelectRemove"></select> <button class="btn danger"  style="color:white" onclick="removeStudentByMaxId()"> Удалить</button> </div> <p class="muted" style="margin: 8px 0 0;"> Чтобы не удалить по ошибке — нужно явно ввести MAX ID ученика.
             </p> </div> </div> <!-- Единая таблица: ученики и оценки --> <div class="grades-section" id="gradesSection"> <h2> Оценки за тесты</h2> <div id="grades"><p class="muted"> Загрузка...</p></div> </div> <script> const API = "/api/class";
         let editMode = false;
@@ -247,6 +247,8 @@
         async function loadClasses() {
             const classes = await api("/classes");
             fillClassSelects(classes);
+            const createCard = document.getElementById("createClassCard");
+            if (createCard) createCard.style.display = classes.length ? "none" : "block";
         }
 
         async function createClass() {

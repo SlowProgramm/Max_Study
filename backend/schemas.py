@@ -136,6 +136,8 @@ class TestPublic(BaseModel):
 
     description: str | None
 
+    subject: str | None = None
+
     time_limit_minutes: int | None = None
 
     time_limit_seconds: int | None = None
@@ -183,6 +185,8 @@ class SaveTestRequest(BaseModel):
     title: str
 
     description: str | None = None
+
+    subject: str | None = None
 
     # Устарело: создатель берётся из проверенных данных MAX, значение игнорируется.
     creator_id: int | None = None
@@ -476,6 +480,7 @@ class DraftTestItem(BaseModel):
     test_id: int
     title: str
     description: str | None = None
+    subject: str | None = None
     access_code: str
     time_limit_seconds: int | None = None
     created_at: str | None = None
@@ -492,6 +497,47 @@ class TestEntryInfo(BaseModel):
     id: int
     title: str
     description: str | None = None
+    subject: str | None = None
     access_code: str
     time_limit_seconds: int | None = None
     question_count: int = 0
+
+
+# =========================
+# ЗАПЛАНИРОВАННЫЕ ТЕСТЫ (анонсы)
+# =========================
+
+class ScheduledTestCreate(BaseModel):
+    title: str
+    subject: str
+    description: str | None = None
+    scheduled_date: str  # YYYY-MM-DD
+    materials_text: str | None = None
+    class_id: int | None = None  # если None — единственный класс учителя
+
+
+class ScheduledTestOut(BaseModel):
+    id: int
+    title: str
+    subject: str
+    description: str | None = None
+    scheduled_date: str  # DD.MM.YYYY
+    materials_text: str | None = None
+    class_id: int
+    class_name: str | None = None
+    created_at: str | None = None
+    notified_day_before: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+# Редактирование черновика (полная замена вопросов)
+class UpdateDraftRequest(BaseModel):
+    title: str
+    description: str | None = None
+    subject: str | None = None
+    time_limit_minutes: int | None = None
+    time_limit_seconds: int | None = None
+    max_attempts: int | None = 1
+    questions: list[QuestionSave]

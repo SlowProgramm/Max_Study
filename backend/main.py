@@ -24,9 +24,13 @@ from backend.schemas import (
     DraftTestItem,
     NotifyTestRequest,
     TestEntryInfo,
+    ScheduledTestCreate,
+    ScheduledTestOut,
+    UpdateDraftRequest,
 )
-from backend.models import Class, ClassMember, TestAttempt
+from backend.models import Class, ClassMember, TestAttempt, ScheduledTest
 from sqlalchemy import func
+from datetime import datetime, timedelta, date
 import random
 import string
 import os
@@ -316,8 +320,11 @@ def notify_students_about_test(
         mm, ss = divmod(time_s, 60)
         time_line = f"\nВремя: {mm} мин {ss} сек" if mm else f"\nВремя: {ss} сек"
 
+    subject = getattr(test, "subject", None)
+    subj_line = f"\nПредмет: {subject}" if subject else ""
     text = (
         f"Новый тест: {test.title or 'Без названия'}"
+        f"{subj_line}"
         f"{time_line}"
         f"\nКод: {code}"
     )
@@ -599,9 +606,12 @@ def save_test(
     if max_att is None:
         max_att = 1
 
+    subject = (data.subject or "").strip() or None
+
     test = Test(
         title=data.title,
         description=data.description,
+        subject=subject,
         creator_id=user.id,
         access_code=generate_code(),
         time_limit_minutes=time_limit_min,
@@ -860,6 +870,7 @@ def list_classes(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    # MVP: удаляем пустые классы (0 учеников), оставляем один
     rows = (
         db.query(
             Class,
@@ -871,9 +882,20 @@ def list_classes(
         .order_by(Class.created_at.desc())
         .all()
     )
+    cleaned = []
+    for c, cnt in rows:
+        if cnt == 0:
+            db.delete(c)
+        else:
+            cleaned.append((c, cnt))
+    if any(cnt == 0 for _, cnt in rows):
+        db.commit()
+    # Если осталось несколько непустых — для MVP отдаём только самый новый
+    if len(cleaned) > 1:
+        cleaned = cleaned[:1]
     return [
         ClassOut(id=c.id, name=c.name, student_count=cnt)
-        for c, cnt in rows
+        for c, cnt in cleaned
     ]
 
 
@@ -886,6 +908,16 @@ def create_class(
     name = data.name.strip()
     if not name:
         raise HTTPException(400, "Имя класса не может быть пустым")
+
+    # MVP: один класс на учителя
+    existing = db.query(Class).filter(Class.teacher_id == user.id).all()
+    for c in existing:
+        cnt = db.query(ClassMember).filter(ClassMember.class_id == c.id).count()
+        if cnt == 0:
+            db.delete(c)
+        else:
+            raise HTTPException(400, "У вас уже есть класс. Для MVP достаточно одного.")
+    db.commit()
 
     cls = Class(name=name, teacher_id=user.id)
     db.add(cls)
@@ -1456,6 +1488,7 @@ def list_drafts(
             test_id=te.id,
             title=te.title or "Без названия",
             description=te.description,
+            subject=getattr(te, "subject", None),
             access_code=te.access_code or "",
             time_limit_seconds=resolve_time_limit_seconds(te),
             created_at=created,
@@ -1520,6 +1553,7 @@ def test_entry_info(code: str, db: Session = Depends(get_db)):
         id=test.id,
         title=test.title or "Без названия",
         description=test.description,
+        subject=getattr(test, "subject", None),
         access_code=test.access_code,
         time_limit_seconds=resolve_time_limit_seconds(test),
         question_count=qcount,
@@ -1562,6 +1596,7 @@ def teacher_test_manage(
         "test_id": test.id,
         "title": test.title or "Без названия",
         "description": test.description,
+        "subject": getattr(test, "subject", None),
         "access_code": test.access_code or "",
         "is_draft": bool(getattr(test, "is_draft", False)),
         "time_limit_seconds": resolve_time_limit_seconds(test),
@@ -1596,6 +1631,7 @@ def teacher_my_tests(
             "test_id": te.id,
             "title": te.title or "Без названия",
             "description": te.description,
+            "subject": getattr(te, "subject", None),
             "access_code": te.access_code or "",
             "is_draft": bool(getattr(te, "is_draft", False)),
             "time_limit_seconds": resolve_time_limit_seconds(te),
@@ -1783,3 +1819,425 @@ def teacher_dashboard(
         "tests": tests_out,
         "student_ranking": ranking,
     }
+
+
+
+# ─── Редактирование черновика ────────────────────
+
+@app.get("/api/teacher/tests/{test_id}/edit")
+def get_draft_for_edit(
+    test_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Полные данные черновика для редактора (вопросы + ответы)."""
+    test = (
+        db.query(Test)
+        .options(
+            joinedload(Test.questions).joinedload(Question.answers)
+        )
+        .filter(Test.id == test_id, Test.creator_id == user.id)
+        .first()
+    )
+    if not test:
+        raise HTTPException(404, "Тест не найден")
+    if not getattr(test, "is_draft", False):
+        raise HTTPException(400, "Редактировать можно только черновик")
+
+    questions = []
+    for q in sorted(test.questions or [], key=lambda x: (x.order_number or 0, x.id or 0)):
+        questions.append({
+            "text": q.text,
+            "explanation": q.explanation,
+            "answers": [
+                {"text": a.text, "is_correct": bool(a.is_correct)}
+                for a in (q.answers or [])
+            ],
+        })
+
+    total_sec = resolve_time_limit_seconds(test)
+    return {
+        "test_id": test.id,
+        "title": test.title or "",
+        "description": test.description,
+        "subject": getattr(test, "subject", None),
+        "time_limit_seconds": total_sec,
+        "time_limit_minutes": (total_sec // 60) if total_sec else 0,
+        "max_attempts": test.max_attempts,
+        "is_draft": True,
+        "access_code": test.access_code,
+        "questions": questions,
+    }
+
+
+@app.put("/api/teacher/tests/{test_id}")
+def update_draft(
+    test_id: int,
+    data: UpdateDraftRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Обновить черновик: метаданные + полная замена вопросов."""
+    test = db.query(Test).filter(Test.id == test_id, Test.creator_id == user.id).first()
+    if not test:
+        raise HTTPException(404, "Тест не найден")
+    if not getattr(test, "is_draft", False):
+        raise HTTPException(400, "Редактировать можно только черновик")
+
+    total_sec = compute_time_limit_seconds(data.time_limit_minutes, data.time_limit_seconds)
+    time_limit_min = (total_sec // 60) if total_sec else None
+    max_att = data.max_attempts if data.max_attempts is not None else 1
+
+    test.title = data.title
+    test.description = data.description
+    test.subject = (data.subject or "").strip() or None
+    test.time_limit_minutes = time_limit_min
+    test.time_limit_seconds = total_sec
+    test.max_attempts = max_att
+
+    # Удаляем старые вопросы и ответы
+    old_qs = db.query(Question).filter(Question.test_id == test.id).all()
+    for q in old_qs:
+        db.query(AnswerOption).filter(AnswerOption.question_id == q.id).delete()
+        db.delete(q)
+    db.flush()
+
+    for i, q in enumerate(data.questions or []):
+        question = Question(
+            test_id=test.id,
+            text=q.text,
+            explanation=q.explanation,
+            order_number=i + 1,
+        )
+        db.add(question)
+        db.flush()
+        for answer in q.answers:
+            db.add(AnswerOption(
+                question_id=question.id,
+                text=answer.text,
+                is_correct=answer.is_correct,
+            ))
+
+    db.commit()
+    db.refresh(test)
+    return {
+        "message": "Черновик обновлён",
+        "test_id": test.id,
+        "code": test.access_code,
+        "is_draft": True,
+        "subject": test.subject,
+    }
+
+
+# ─── Запланированные тесты (анонсы) ───────────────
+
+def _parse_date(s: str) -> datetime:
+    s = (s or "").strip()
+    for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+    raise HTTPException(400, "Неверный формат даты. Используйте ГГГГ-ММ-ДД")
+
+
+def _fmt_date(dt) -> str:
+    if not dt:
+        return ""
+    try:
+        return dt.strftime("%d.%m.%Y")
+    except Exception:
+        return str(dt)
+
+
+def _cleanup_past_scheduled(db: Session, teacher_id: int | None = None):
+    """Удаляет анонсы, дата которых уже прошла (на следующий день после теста)."""
+    today_start = datetime.combine(date.today(), datetime.min.time())
+    q = db.query(ScheduledTest).filter(ScheduledTest.scheduled_date < today_start)
+    if teacher_id is not None:
+        q = q.filter(ScheduledTest.teacher_id == teacher_id)
+    deleted = q.delete(synchronize_session=False)
+    if deleted:
+        db.commit()
+    return deleted
+
+
+def _send_day_before_reminders(db: Session):
+    """Напоминания за день до теста — вызывается при открытии списка."""
+    tomorrow = date.today() + timedelta(days=1)
+    day_start = datetime.combine(tomorrow, datetime.min.time())
+    day_end = datetime.combine(tomorrow, datetime.max.time())
+    items = (
+        db.query(ScheduledTest)
+        .filter(
+            ScheduledTest.scheduled_date >= day_start,
+            ScheduledTest.scheduled_date <= day_end,
+            ScheduledTest.notified_day_before == False,  # noqa: E712
+        )
+        .all()
+    )
+    for item in items:
+        students = (
+            db.query(User)
+            .join(ClassMember, ClassMember.student_id == User.id)
+            .filter(ClassMember.class_id == item.class_id)
+            .all()
+        )
+        text = (
+            f"Напоминание: завтра тест\n"
+            f"Предмет: {item.subject}\n"
+            f"Тема: {item.title}\n"
+            f"Дата: {_fmt_date(item.scheduled_date)}"
+        )
+        if item.description:
+            text += f"\n{item.description}"
+        for st in students:
+            send_max_message(st.max_id, text)
+        item.notified_day_before = True
+    if items:
+        db.commit()
+    return len(items)
+
+
+def _notify_scheduled_created(db: Session, item: ScheduledTest):
+    students = (
+        db.query(User)
+        .join(ClassMember, ClassMember.student_id == User.id)
+        .filter(ClassMember.class_id == item.class_id)
+        .all()
+    )
+    text = (
+        f"Запланирован тест\n"
+        f"Предмет: {item.subject}\n"
+        f"Тема: {item.title}\n"
+        f"Дата: {_fmt_date(item.scheduled_date)}"
+    )
+    if item.description:
+        text += f"\n{item.description}"
+    if item.materials_text:
+        text += "\nЕсть материалы для подготовки — откройте «Запланированные» в приложении."
+    sent, failed = 0, 0
+    for st in students:
+        ok, _ = send_max_message(st.max_id, text)
+        if ok:
+            sent += 1
+        else:
+            failed += 1
+    return {"sent": sent, "failed": failed, "total": len(students)}
+
+
+def _teacher_single_class(db: Session, user: User) -> Class:
+    classes = db.query(Class).filter(Class.teacher_id == user.id).all()
+    non_empty = []
+    for c in classes:
+        cnt = db.query(ClassMember).filter(ClassMember.class_id == c.id).count()
+        if cnt == 0:
+            db.delete(c)
+        else:
+            non_empty.append(c)
+    db.commit()
+    if not non_empty:
+        # разрешаем создать анонс и без учеников, если класс есть
+        any_cls = db.query(Class).filter(Class.teacher_id == user.id).first()
+        if any_cls:
+            return any_cls
+        raise HTTPException(400, "Сначала создайте класс в разделе «Мой класс»")
+    return non_empty[0]
+
+
+@app.post("/api/scheduled", response_model=ScheduledTestOut)
+def create_scheduled(
+    data: ScheduledTestCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    title = (data.title or "").strip()
+    subject = (data.subject or "").strip()
+    if not title:
+        raise HTTPException(400, "Укажите тему")
+    if not subject:
+        raise HTTPException(400, "Укажите предмет")
+
+    cls = None
+    if data.class_id:
+        cls = (
+            db.query(Class)
+            .filter(Class.id == data.class_id, Class.teacher_id == user.id)
+            .first()
+        )
+        if not cls:
+            raise HTTPException(404, "Класс не найден")
+    else:
+        cls = _teacher_single_class(db, user)
+
+    sched_dt = _parse_date(data.scheduled_date)
+    # нормализуем к началу дня
+    sched_dt = datetime.combine(sched_dt.date(), datetime.min.time())
+
+    item = ScheduledTest(
+        teacher_id=user.id,
+        class_id=cls.id,
+        title=title,
+        subject=subject,
+        description=(data.description or "").strip() or None,
+        scheduled_date=sched_dt,
+        materials_text=(data.materials_text or "").strip() or None,
+        notified_day_before=False,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+
+    notify_result = _notify_scheduled_created(db, item)
+
+    return ScheduledTestOut(
+        id=item.id,
+        title=item.title,
+        subject=item.subject,
+        description=item.description,
+        scheduled_date=_fmt_date(item.scheduled_date),
+        materials_text=item.materials_text,
+        class_id=item.class_id,
+        class_name=cls.name,
+        created_at=_fmt_date(item.created_at) if item.created_at else None,
+        notified_day_before=bool(item.notified_day_before),
+    )
+
+
+@app.get("/api/scheduled", response_model=list[ScheduledTestOut])
+def list_scheduled_teacher(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _cleanup_past_scheduled(db, teacher_id=user.id)
+    _send_day_before_reminders(db)
+
+    items = (
+        db.query(ScheduledTest)
+        .filter(ScheduledTest.teacher_id == user.id)
+        .order_by(ScheduledTest.scheduled_date.asc())
+        .all()
+    )
+    out = []
+    for item in items:
+        cls = db.query(Class).filter(Class.id == item.class_id).first()
+        out.append(ScheduledTestOut(
+            id=item.id,
+            title=item.title,
+            subject=item.subject,
+            description=item.description,
+            scheduled_date=_fmt_date(item.scheduled_date),
+            materials_text=item.materials_text,
+            class_id=item.class_id,
+            class_name=cls.name if cls else None,
+            created_at=_fmt_date(item.created_at) if item.created_at else None,
+            notified_day_before=bool(item.notified_day_before),
+        ))
+    return out
+
+
+@app.delete("/api/scheduled/{item_id}")
+def delete_scheduled(
+    item_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    item = (
+        db.query(ScheduledTest)
+        .filter(ScheduledTest.id == item_id, ScheduledTest.teacher_id == user.id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(404, "Запись не найдена")
+    db.delete(item)
+    db.commit()
+    return {"message": "Удалено"}
+
+
+@app.get("/api/student/scheduled", response_model=list[ScheduledTestOut])
+def list_scheduled_student(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _cleanup_past_scheduled(db)
+    _send_day_before_reminders(db)
+
+    class_ids = [
+        r[0]
+        for r in db.query(ClassMember.class_id)
+        .filter(ClassMember.student_id == user.id)
+        .all()
+    ]
+    if not class_ids:
+        return []
+
+    items = (
+        db.query(ScheduledTest)
+        .filter(ScheduledTest.class_id.in_(class_ids))
+        .order_by(ScheduledTest.scheduled_date.asc())
+        .all()
+    )
+    out = []
+    for item in items:
+        cls = db.query(Class).filter(Class.id == item.class_id).first()
+        out.append(ScheduledTestOut(
+            id=item.id,
+            title=item.title,
+            subject=item.subject,
+            description=item.description,
+            scheduled_date=_fmt_date(item.scheduled_date),
+            materials_text=item.materials_text,
+            class_id=item.class_id,
+            class_name=cls.name if cls else None,
+            created_at=_fmt_date(item.created_at) if item.created_at else None,
+            notified_day_before=bool(item.notified_day_before),
+        ))
+    return out
+
+
+@app.get("/api/scheduled/{item_id}/materials")
+def download_materials(
+    item_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Текст материалов — ученик или учитель класса."""
+    item = db.query(ScheduledTest).filter(ScheduledTest.id == item_id).first()
+    if not item:
+        raise HTTPException(404, "Запись не найдена")
+
+    is_teacher = item.teacher_id == user.id
+    is_student = (
+        db.query(ClassMember)
+        .filter(
+            ClassMember.class_id == item.class_id,
+            ClassMember.student_id == user.id,
+        )
+        .first()
+        is not None
+    )
+    if not is_teacher and not is_student:
+        raise HTTPException(403, "Нет доступа")
+
+    if not item.materials_text:
+        raise HTTPException(404, "Материалов нет")
+
+    from fastapi.responses import Response
+    filename = f"materials_{item.subject}_{item.id}.txt".replace(" ", "_")
+    return Response(
+        content=item.materials_text.encode("utf-8"),
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        },
+    )
+
+
+@app.get("/scheduled_page")
+def scheduled_page():
+    return FileResponse("frontend/scheduled_page.html")
+
+
+@app.get("/student_scheduled")
+def student_scheduled_page():
+    return FileResponse("frontend/student_scheduled.html")

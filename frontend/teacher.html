@@ -171,7 +171,7 @@
             }
             .editor-actions button { width: auto; flex: 1; }
         }
-    </style> </head> <body> <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button> <h1> Создание теста</h1> <div class="form-card"> <label for="topic"> Тема</label> <input id="topic" type="text" placeholder="Например: Фотосинтез"> <label for="count"> Количество вопросов</label> <input id="count" type="number" value="5" min="1" max="20"> <label for="timeMin"> Время на тест</label> <div class="row" style="margin-bottom:12px"> <input id="timeMin" type="number" min="0" value="0" placeholder="мин" style="flex:1"> <span style="color:#6b7280"> мин</span> <input id="timeSec" type="number" min="0" max="59" value="0" placeholder="сек" style="flex:1"> <span style="color:#6b7280"> сек</span> </div> <label for="description"> Описание (для страницы входа)</label> <textarea id="description" placeholder="Необязательно: о чём тест, что взять с собой…"></textarea> <div class="form-actions"> <button id="generateBtn" onclick="generateTest()"> Сгенерировать</button> </div>
+    </style> </head> <body> <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button> <h1> Создание теста</h1> <div class="form-card"> <label for="topic"> Тема</label> <input id="topic" type="text" placeholder="Например: Фотосинтез"> <label for="subject"> Предмет</label> <input id="subject" type="text" placeholder="Например: Биология"> <label for="count"> Количество вопросов</label> <input id="count" type="number" value="5" min="1" max="20"> <label for="timeMin"> Время на тест</label> <div class="row" style="margin-bottom:12px"> <input id="timeMin" type="number" min="0" value="0" placeholder="мин" style="flex:1"> <span style="color:#6b7280"> мин</span> <input id="timeSec" type="number" min="0" max="59" value="0" placeholder="сек" style="flex:1"> <span style="color:#6b7280"> сек</span> </div> <label for="description"> Описание (для страницы входа)</label> <textarea id="description" placeholder="Необязательно: о чём тест, что взять с собой…"></textarea> <div class="form-actions"> <button id="generateBtn" onclick="generateTest()"> Сгенерировать</button> </div>
 </div> <div id="loadingBox" class="loading-box"> <div class="spinner"></div> <p> Генерируем тест… Это может занять до минуты</p>
 </div> <div id="editor"></div> <div class="editor-actions" id="editorActions" style="display:none"> <button id="addQuestionButton" class="ghost" onclick="addQuestion()">+ Добавить вопрос</button> <button id="draftButton" class="ghost" onclick="saveTest(true, false)"> В черновики</button> <button id="saveButton" onclick="saveTest(false, false)"> Опубликовать</button>
 </div> <div id="testResult"></div> <script> let generatedTest = null;
@@ -520,6 +520,8 @@ function deleteAnswer(
 
 
 
+let _editTestId = null;
+
 async function saveTest(asDraft = false, notify = false) {
     const saveBtn = document.getElementById("saveButton");
     const draftBtn = document.getElementById("draftButton");
@@ -529,21 +531,51 @@ async function saveTest(asDraft = false, notify = false) {
     const timeMin = Number(document.getElementById("timeMin")?.value || 0);
     const timeSec = Number(document.getElementById("timeSec")?.value || 0);
     const description = (document.getElementById("description")?.value || "").trim() || null;
+    const subject = (document.getElementById("subject")?.value || "").trim() || null;
+    // Обновляем title из поля topic, если есть
+    const topicVal = (document.getElementById("topic")?.value || "").trim();
+    if (topicVal) generatedTest.title = topicVal;
 
     try {
-        const response = await maxFetch("/tests/save", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                title: generatedTest.title,
-                description: description,
-                time_limit_minutes: timeMin,
-                time_limit_seconds: timeSec,
-                is_draft: !!asDraft,
-                notify: !!notify && !asDraft,
-                questions: generatedTest.questions,
-            }),
-        });
+        let response;
+        if (_editTestId) {
+            // Редактирование существующего черновика
+            response = await maxFetch("/api/teacher/tests/" + _editTestId, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: generatedTest.title,
+                    description: description,
+                    subject: subject,
+                    time_limit_minutes: timeMin,
+                    time_limit_seconds: timeSec,
+                    questions: generatedTest.questions,
+                }),
+            });
+            if (response.ok && !asDraft) {
+                // После сохранения черновика можно опубликовать
+                const pub = await maxFetch("/api/teacher/tests/" + _editTestId + "/publish", { method: "POST" });
+                if (pub.ok) {
+                    location.href = "/teacher_test?id=" + _editTestId;
+                    return;
+                }
+            }
+        } else {
+            response = await maxFetch("/tests/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: generatedTest.title,
+                    description: description,
+                    subject: subject,
+                    time_limit_minutes: timeMin,
+                    time_limit_seconds: timeSec,
+                    is_draft: !!asDraft,
+                    notify: !!notify && !asDraft,
+                    questions: generatedTest.questions,
+                }),
+            });
+        }
         const result = await response.json();
         if (!response.ok) {
             alert(maxErrorText(response.status, result));
@@ -553,23 +585,24 @@ async function saveTest(asDraft = false, notify = false) {
         const timeInfo = result.time_limit_seconds
             ? `<p> Время: <b>${Math.floor(result.time_limit_seconds/60)} мин ${result.time_limit_seconds%60} сек</b></p>`
             : `<p> Без ограничения времени</p>`;
+        const tid = result.test_id || _editTestId;
         const draftInfo = result.is_draft
-            ? `<p> Черновик сохранён — откройте «Черновики», чтобы уведомить класс.</p>`
+            ? `<p> Черновик сохранён — можно продолжить редактирование или открыть «Мои тесты».</p>`
             : `<p> Тест опубликован</p>`;
         const notifyInfo = result.notify
             ? `<p> Уведомления: ${result.notify.sent} из ${result.notify.total}</p>`
             : "";
 
         // После сохранения — карточка теста (QR, код, уведомление всегда доступны)
-        if (result.test_id && !result.is_draft) {
-            location.href = "/teacher_test?id=" + result.test_id;
+        if (tid && !result.is_draft) {
+            location.href = "/teacher_test?id=" + tid;
             return;
         }
 
         document.getElementById("testResult").innerHTML = `
-        <div class="result"> <h2>Запланирован</h2> ${draftInfo}
-            <p>Код для учеников:</p> <div class="code">${result.code}</div> ${timeInfo}
-            <p style="margin-top:12px"> <a href="/teacher_test?id=${result.test_id}">Открыть карточку (QR)</a> ·
+        <div class="result"> <h2>${_editTestId ? "Черновик обновлён" : "Запланирован"}</h2> ${draftInfo}
+            <p>Код для учеников:</p> <div class="code">${result.code || ""}</div> ${timeInfo}
+            <p style="margin-top:12px"> <a href="/teacher_test?id=${tid}">Открыть карточку (QR)</a> ·
               <a href="/my_tests">Мои тесты</a> </p> </div>`;
         const tr = document.getElementById("testResult");
         if (tr) setTimeout(() => tr.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
@@ -582,5 +615,55 @@ async function saveTest(asDraft = false, notify = false) {
 }
 
 
+
+
+// Режим редактирования черновика: /teacher.html?edit=ID
+(async function loadDraftIfNeeded() {
+    const params = new URLSearchParams(location.search);
+    const editId = params.get("edit");
+    if (!editId) return;
+    _editTestId = Number(editId);
+    try {
+        const res = await maxFetch("/api/teacher/tests/" + editId + "/edit");
+        if (!res.ok) {
+            alert(maxErrorText(res.status, await res.json().catch(() => ({}))));
+            return;
+        }
+        const data = await res.json();
+        generatedTest = {
+            title: data.title || "",
+            questions: (data.questions || []).map(q => ({
+                text: q.text,
+                explanation: q.explanation || "",
+                answers: (q.answers || []).map(a => ({
+                    text: a.text,
+                    is_correct: !!a.is_correct,
+                })),
+            })),
+        };
+        const topicEl = document.getElementById("topic");
+        if (topicEl) topicEl.value = data.title || "";
+        const subEl = document.getElementById("subject");
+        if (subEl) subEl.value = data.subject || "";
+        const descEl = document.getElementById("description");
+        if (descEl) descEl.value = data.description || "";
+        const totalSec = data.time_limit_seconds || 0;
+        const minEl = document.getElementById("timeMin");
+        const secEl = document.getElementById("timeSec");
+        if (minEl) minEl.value = Math.floor(totalSec / 60);
+        if (secEl) secEl.value = totalSec % 60;
+        const h1 = document.querySelector("h1");
+        if (h1) h1.textContent = "Редактирование черновика";
+        const genBtn = document.getElementById("generateBtn");
+        if (genBtn) genBtn.style.display = "none";
+        renderEditor();
+        const actions = document.getElementById("editorActions");
+        if (actions) actions.style.display = "flex";
+        const draftBtn = document.getElementById("draftButton");
+        if (draftBtn) draftBtn.textContent = "Сохранить черновик";
+    } catch (e) {
+        alert(e.message || String(e));
+    }
+})();
 
 </script> </body> </html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://st.max.ru/js/max-web-app.js"></script>
+<script src="/static/max-auth.js"></script>
+<link rel="stylesheet" href="/static/style.css">
+<title>Запланированные — учитель</title>
+<style>
+  body { max-width: 720px; margin: 0 auto; padding: 16px 14px 48px; }
+  .item {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 14px; margin-bottom: 10px;
+  }
+  .item h3 { margin: 0 0 6px; font-size: 16px; }
+  .item .meta { color: #6b7280; font-size: 13px; margin-bottom: 8px; }
+  .item .desc { font-size: 14px; color: #374151; white-space: pre-wrap; }
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 999px; margin-left: 6px;
+    background: #dbeafe; color: #1e40af; vertical-align: middle;
+  }
+  .form-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 16px; margin-bottom: 16px;
+  }
+  .form-card label { display: block; margin: 10px 0 4px; font-size: 14px; font-weight: 600; }
+  .form-card input, .form-card textarea {
+    width: 100%; padding: 10px; font-size: 15px; border: 1px solid #ccc;
+    border-radius: 8px; box-sizing: border-box;
+  }
+  .form-card textarea { min-height: 80px; resize: vertical; }
+  .form-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .form-actions button { flex: 1; min-width: 120px; }
+  .item-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .item-actions button { flex: 1; min-width: 100px; padding: 8px 12px; font-size: 14px; }
+  button.danger { background: #fee2e2; color: #b91c1c; }
+  button.danger:hover { background: #fecaca; }
+  .toggle-form {
+    width: 100%; margin-bottom: 14px; background: #eff6ff; color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+  }
+</style>
+</head>
+<body>
+<button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button>
+<h1>Запланированные</h1>
+<p class="subtitle">Анонсы предстоящих тестов. Ученики получат уведомление при создании и за день до даты.</p>
+
+<button class="toggle-form" id="toggleBtn" onclick="toggleForm()">+ Запланировать тест</button>
+
+<div class="form-card" id="formCard" style="display:none">
+  <label for="title">Тема</label>
+  <input id="title" type="text" placeholder="Например: Квадратные уравнения">
+  <label for="subject">Предмет</label>
+  <input id="subject" type="text" placeholder="Например: Математика">
+  <label for="date">Дата теста</label>
+  <input id="date" type="date">
+  <label for="description">Описание</label>
+  <textarea id="description" placeholder="Что будет на тесте, что повторить…"></textarea>
+  <label for="materials">Материалы для подготовки</label>
+  <textarea id="materials" placeholder="Текст, который ученик сможет скачать файлом"></textarea>
+  <div class="form-actions">
+    <button onclick="createItem()">Создать</button>
+    <button class="ghost" onclick="toggleForm()">Отмена</button>
+  </div>
+</div>
+
+<div id="list"><p class="muted">Загрузка…</p></div>
+
+<script>
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+
+function toggleForm() {
+  const card = document.getElementById("formCard");
+  const show = card.style.display === "none";
+  card.style.display = show ? "block" : "none";
+  document.getElementById("toggleBtn").textContent = show ? "Скрыть форму" : "+ Запланировать тест";
+}
+
+async function createItem() {
+  const title = (document.getElementById("title").value || "").trim();
+  const subject = (document.getElementById("subject").value || "").trim();
+  const scheduled_date = document.getElementById("date").value;
+  const description = (document.getElementById("description").value || "").trim() || null;
+  const materials_text = (document.getElementById("materials").value || "").trim() || null;
+  if (!title || !subject || !scheduled_date) {
+    alert("Заполните тему, предмет и дату");
+    return;
+  }
+  try {
+    const res = await maxFetch("/api/scheduled", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, subject, scheduled_date, description, materials_text }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(maxErrorText(res.status, data));
+    document.getElementById("title").value = "";
+    document.getElementById("subject").value = "";
+    document.getElementById("description").value = "";
+    document.getElementById("materials").value = "";
+    toggleForm();
+    load();
+  } catch (e) {
+    alert(e.message || String(e));
+  }
+}
+
+async function deleteItem(id) {
+  if (!confirm("Удалить запись?")) return;
+  try {
+    const res = await maxFetch("/api/scheduled/" + id, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(maxErrorText(res.status, data));
+    }
+    load();
+  } catch (e) {
+    alert(e.message || String(e));
+  }
+}
+
+function render(items) {
+  const box = document.getElementById("list");
+  if (!items.length) {
+    box.innerHTML = '<p class="muted">Нет запланированных тестов. Создайте первый анонс.</p>';
+    return;
+  }
+  box.innerHTML = items.map(d => `
+    <div class="item">
+      <h3>${escapeHtml(d.subject)} — ${escapeHtml(d.title)}
+        <span class="badge">${escapeHtml(d.scheduled_date)}</span>
+      </h3>
+      <div class="meta">${d.class_name ? "Класс: " + escapeHtml(d.class_name) + " · " : ""}создано ${escapeHtml(d.created_at || "")}</div>
+      ${d.description ? `<div class="desc">${escapeHtml(d.description)}</div>` : ""}
+      ${d.materials_text ? `<div class="meta" style="margin-top:6px">Есть материалы для подготовки</div>` : ""}
+      <div class="item-actions">
+        <button class="danger" onclick="deleteItem(${d.id})">Удалить</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+async function load() {
+  const box = document.getElementById("list");
+  try {
+    const res = await maxFetch("/api/scheduled");
+    if (!res.ok) throw new Error(maxErrorText(res.status, await res.json().catch(() => ({}))));
+    render(await res.json());
+  } catch (e) {
+    box.innerHTML = `<p class="muted" style="color:#dc2626">${escapeHtml(e.message)}</p>`;
+  }
+}
+load();
+</script>
+</body>
+</html>

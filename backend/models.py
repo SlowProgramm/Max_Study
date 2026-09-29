@@ -84,6 +84,8 @@ class Test(Base):
     creator_id = Column(Integer, ForeignKey("users.id"))
     title = Column(String)
     description = Column(Text)
+    # Предмет (Математика, История и т.п.)
+    subject = Column(String(100), nullable=True)
     access_code = Column(String)
     # Ограничение времени на весь тест в секундах (None = без ограничения)
     time_limit_minutes = Column(Integer, nullable=True)  # legacy
@@ -97,6 +99,35 @@ class Test(Base):
         "Question",
         back_populates="test"
     )
+
+
+# Анонс предстоящего теста (не сам тест — только запись о плане)
+class ScheduledTest(Base):
+    __tablename__ = "scheduled_tests"
+
+    id = Column(Integer, primary_key=True)
+    teacher_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+    class_id = Column(
+        Integer,
+        ForeignKey("classes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    title = Column(String(255), nullable=False)          # Тема
+    subject = Column(String(100), nullable=False)        # Предмет
+    description = Column(Text, nullable=True)
+    scheduled_date = Column(DateTime, nullable=False)    # Дата теста
+    materials_text = Column(Text, nullable=True)         # Материалы для подготовки (текст)
+    notified_day_before = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    teacher = relationship("User", foreign_keys=[teacher_id])
+    class_ = relationship("Class", foreign_keys=[class_id])
 
 
 # Вопросы

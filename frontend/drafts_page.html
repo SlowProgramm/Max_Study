@@ -22,7 +22,7 @@
     .badge.live { background: #dcfce7; color: #166534; }
   </style>
 </head>
-<body> <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button> <h1> Мои тесты</h1> <p class="subtitle"> Черновики (запланированные) и опубликованные — откройте карточку для QR и уведомления.</p> <div class="tabs"> <button type="button" class="active" id="tabDraft" onclick="setTab('draft')"> Запланированные</button> <button type="button" id="tabLive" onclick="setTab('live')"> Опубликованные</button> </div> <div id="list"><p class="muted"> Загрузка...</p></div> <script>
+<body> <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button> <h1> Мои тесты</h1> <p class="subtitle"> Черновики и опубликованные тесты. Черновик можно отредактировать до публикации.</p> <div class="tabs"> <button type="button" class="active" id="tabDraft" onclick="setTab('draft')"> Черновики</button> <button type="button" id="tabLive" onclick="setTab('live')"> Опубликованные</button> </div> <div id="list"><p class="muted"> Загрузка...</p></div> <script>
 let _all = [];
 let _tab = "draft";
 
@@ -49,15 +49,17 @@ function render() {
   const items = _all.filter(t => _tab === "draft" ? t.is_draft : !t.is_draft);
   if (!items.length) {
     box.innerHTML = _tab === "draft"
-      ? '<p class="muted"> Нет запланированных. Сохраните тест как черновик при создании.</p>'
+      ? '<p class="muted"> Нет черновиков. Сохраните тест в черновики при создании.</p>'
       : '<p class="muted"> Нет опубликованных тестов.</p>';
     return;
   }
   box.innerHTML = items.map(d => `
     <div class="item" onclick="location.href='/teacher_test?id=${d.test_id}'"> <h3> ${escapeHtml(d.title)}
-        <span class="badge ${d.is_draft ? "draft" : "live"}">${d.is_draft ? "черновик" : "опубликован"}</span> </h3> <div class="meta"> ${d.created_at ? escapeHtml(d.created_at) + " · " : ""}
+        <span class="badge ${d.is_draft ? "draft" : "live"}">${d.is_draft ? "черновик" : "опубликован"}</span> </h3> <div class="meta"> ${d.subject ? escapeHtml(d.subject) + " · " : ""}${d.created_at ? escapeHtml(d.created_at) + " · " : ""}
         код ${escapeHtml(d.access_code)} ·  ${fmtTime(d.time_limit_seconds)}
-      </div> </div> `).join("");
+      </div>
+      ${d.is_draft ? `<div style="margin-top:8px"><button class="ghost" style="padding:8px 12px;font-size:13px" onclick="event.stopPropagation();location.href='/teacher.html?edit=${d.test_id}'">Редактировать</button></div>` : ""}
+      </div> `).join("");
 }
 
 async function load() {

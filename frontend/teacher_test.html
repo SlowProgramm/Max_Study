@@ -197,9 +197,9 @@ async function load() {
 
     box.innerHTML = `
       <div class="card"> ${badge}
-        <h1>${escapeHtml(d.title)}</h1> ${d.description ? `<p class="desc">${escapeHtml(d.description)}</p>` : ""}
+        <h1>${escapeHtml(d.title)}${d.subject ? ` <span class="badge" style="background:#e0e7ff;color:#3730a3">${escapeHtml(d.subject)}</span>` : ""}</h1> ${d.description ? `<p class="desc">${escapeHtml(d.description)}</p>` : ""}
         <div class="row-info"> <div> Вопросов: <b>${d.question_count}</b></div> <div> Время: <b>${fmtTime(d.time_limit_seconds)}</b></div> <div> Сдач: <b>${d.attempt_count}</b></div> ${d.created_at ? `<div> ${escapeHtml(d.created_at)}</div>` : ""}
-        </div> <p class="muted" style="text-align:center;margin:0"> Код для входа</p> <div class="code">${escapeHtml(d.access_code)}</div> <div class="actions"> <button onclick="showQr()"> Показать QR</button> <button class="ghost" onclick="navigator.clipboard.writeText('${escapeHtml(d.access_code)}');alert('Код скопирован')"> Копировать код</button> <button class="success" onclick="notify()"> Уведомить класс</button> ${d.is_draft ? `<button onclick="publish()"> Опубликовать</button>` : ""}
+        </div> <p class="muted" style="text-align:center;margin:0"> Код для входа</p> <div class="code">${escapeHtml(d.access_code)}</div> <div class="actions"> <button onclick="showQr()"> Показать QR</button> <button class="ghost" onclick="navigator.clipboard.writeText('${escapeHtml(d.access_code)}');alert('Код скопирован')"> Копировать код</button> <button class="success" onclick="notify()"> Уведомить класс</button> ${d.is_draft ? `<button onclick="location.href='/teacher.html?edit=${d.test_id}'"> Редактировать</button><button onclick="publish()"> Опубликовать</button>` : ""}
           ${!d.is_draft ? `<button class="ghost" onclick="location.href='/journal_page#test=${d.test_id}'"> Аналитика</button>` : ""}
         </div> </div> `;
   } catch (e) {

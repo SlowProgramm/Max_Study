@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://st.max.ru/js/max-web-app.js"></script>
+<script src="/static/max-auth.js"></script>
+<link rel="stylesheet" href="/static/style.css">
+<title>Запланированные — ученик</title>
+<style>
+  body { max-width: 720px; margin: 0 auto; padding: 16px 14px 48px; }
+  .item {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 14px; margin-bottom: 10px;
+  }
+  .item h3 { margin: 0 0 6px; font-size: 16px; }
+  .item .meta { color: #6b7280; font-size: 13px; margin-bottom: 8px; }
+  .item .desc { font-size: 14px; color: #374151; white-space: pre-wrap; }
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 999px; margin-left: 6px;
+    background: #dbeafe; color: #1e40af; vertical-align: middle;
+  }
+  .item-actions { margin-top: 10px; }
+  .item-actions button { width: 100%; padding: 10px; font-size: 14px; }
+</style>
+</head>
+<body>
+<button class="back" onclick="location.href='/student_page'">← В меню ученика</button>
+<h1>Запланированные</h1>
+<p class="subtitle">Предстоящие тесты. Материалы можно скачать файлом.</p>
+<div id="list"><p class="muted">Загрузка…</p></div>
+
+<script>
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+
+async function downloadMaterials(id, subject) {
+  try {
+    const res = await maxFetch("/api/scheduled/" + id + "/materials");
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(maxErrorText(res.status, data));
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "materials_" + (subject || "test") + ".txt";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert(e.message || String(e));
+  }
+}
+
+function render(items) {
+  const box = document.getElementById("list");
+  if (!items.length) {
+    box.innerHTML = '<p class="muted">Нет запланированных тестов.</p>';
+    return;
+  }
+  box.innerHTML = items.map(d => `
+    <div class="item">
+      <h3>${escapeHtml(d.subject)} — ${escapeHtml(d.title)}
+        <span class="badge">${escapeHtml(d.scheduled_date)}</span>
+      </h3>
+      <div class="meta">${d.class_name ? "Класс: " + escapeHtml(d.class_name) : ""}</div>
+      ${d.description ? `<div class="desc">${escapeHtml(d.description)}</div>` : ""}
+      ${d.materials_text ? `
+        <div class="item-actions">
+          <button class="ghost" onclick="downloadMaterials(${d.id}, '${escapeHtml(d.subject)}')">Скачать материалы</button>
+        </div>` : ""}
+    </div>
+  `).join("");
+}
+
+async function load() {
+  const box = document.getElementById("list");
+  try {
+    const res = await maxFetch("/api/student/scheduled");
+    if (!res.ok) throw new Error(maxErrorText(res.status, await res.json().catch(() => ({}))));
+    render(await res.json());
+  } catch (e) {
+    box.innerHTML = `<p class="muted" style="color:#dc2626">${escapeHtml(e.message)}</p>`;
+  }
+}
+load();
+</script>
+</body>
+</html>
