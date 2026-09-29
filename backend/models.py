@@ -58,9 +58,8 @@ class TestAttempt(Base):
 
     score = Column(Integer)
 
-    # Антисписывание: сколько раз уходил со страницы / сколько секунд вкладка была скрыта
-    leave_count = Column(Integer, default=0)
-    hidden_seconds = Column(Integer, default=0)
+    # leave_count / hidden_seconds читаются и пишутся сырым SQL
+    # (чтобы приложение не падало, если колонок ещё нет в БД)
 
     test = relationship(
         "Test"

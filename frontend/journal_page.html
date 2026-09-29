@@ -264,8 +264,10 @@ async function openAnalytics(testId) {
         const data = await res.json();
         renderAnalytics(data);
     } catch (e) {
+        console.error("analytics error", e);
         document.getElementById("statsRow").innerHTML =
-            `<p class="muted error">${escapeHtml(e.message)}</p>`;
+            `<p class="muted error">Не удалось загрузить оценки: ${escapeHtml(e.message)}</p>`;
+        document.getElementById("studentsTable").innerHTML = "";
     }
 }
 
@@ -312,7 +314,7 @@ function renderAnalytics(data) {
                 <tbody>
                     ${data.students.map(s => `
                         <tr>
-                            <td>${escapeHtml(shortName(s.username))}</td>
+                            <td>${escapeHtml(s.username)}</td>
                             <td class="${scoreClass(s.percent)}">
                                 ${s.score != null ? s.score + " / " + s.total : "—"}
                             </td>

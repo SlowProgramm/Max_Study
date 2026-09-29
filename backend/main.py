@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, load_only
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
 # from typing import Literal, Optional
@@ -117,6 +117,35 @@ def short_name(username: str | None) -> str:
     if len(parts) >= 2:
         return f"{parts[-1]} {parts[0][0].upper()}."
     return username or "—"
+
+
+def read_cheat_stats(db: Session, attempt_id: int) -> tuple[int, int]:
+    """Читает leave_count/hidden_seconds. Если колонок нет — (0, 0)."""
+    try:
+        from sqlalchemy import text as sa_text
+        row = db.execute(
+            sa_text("SELECT leave_count, hidden_seconds FROM test_attempts WHERE id = :id"),
+            {"id": attempt_id},
+        ).first()
+        if row:
+            return (row[0] or 0), (row[1] or 0)
+    except Exception:
+        db.rollback()
+    return 0, 0
+
+
+def write_cheat_stats(db: Session, attempt_id: int, leave_count: int, hidden_seconds: int) -> None:
+    try:
+        from sqlalchemy import text as sa_text
+        db.execute(
+            sa_text(
+                "UPDATE test_attempts SET leave_count = :lc, hidden_seconds = :hs WHERE id = :id"
+            ),
+            {"lc": leave_count or 0, "hs": hidden_seconds or 0, "id": attempt_id},
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
 
 
 
@@ -455,18 +484,16 @@ def submit_test(
             })
 
     attempt.score = score
-    # Антисписывание
-    attempt.leave_count = data.leave_count or 0
-    attempt.hidden_seconds = data.hidden_seconds or 0
     db.commit()
+    write_cheat_stats(db, attempt_id, data.leave_count or 0, data.hidden_seconds or 0)
 
     return {
         "attempt_id": attempt_id,
         "score": score,
         "total": len(questions),
         "wrong_answers": wrong_answers,
-        "leave_count": attempt.leave_count,
-        "hidden_seconds": attempt.hidden_seconds,
+        "leave_count": data.leave_count or 0,
+        "hidden_seconds": data.hidden_seconds or 0,
     }
 
 @app.post("/tests/{code}/start")
@@ -739,6 +766,8 @@ def student_history(
         if attempt.score is not None and total > 0:
             percent = attempt.score / total * 100
 
+        leave_count, hidden_seconds = read_cheat_stats(db, attempt.id)
+
         result.append(AttemptHistoryItem(
             attempt_id=attempt.id,
             test_id=test.id,
@@ -746,8 +775,8 @@ def student_history(
             score=attempt.score,
             total=total,
             percent=percent,
-            leave_count=getattr(attempt, "leave_count", None) or 0,
-            hidden_seconds=getattr(attempt, "hidden_seconds", None) or 0,
+            leave_count=leave_count,
+            hidden_seconds=hidden_seconds,
         ))
     return result
 
@@ -760,6 +789,12 @@ def student_attempt_detail(
 ):
     attempt = (
         db.query(models.TestAttempt)
+        .options(load_only(
+            models.TestAttempt.id,
+            models.TestAttempt.test_id,
+            models.TestAttempt.student_id,
+            models.TestAttempt.score,
+        ))
         .filter(models.TestAttempt.id == attempt_id)
         .first()
     )
@@ -836,8 +871,8 @@ def student_attempt_detail(
         score=attempt.score,
         total=total,
         percent=percent,
-        leave_count=attempt.leave_count or 0,
-        hidden_seconds=attempt.hidden_seconds or 0,
+        leave_count=read_cheat_stats(db, attempt.id)[0],
+        hidden_seconds=read_cheat_stats(db, attempt.id)[1],
         wrong_answers=wrong_answers,
         hardest_question_text=hardest_text,
     )
@@ -914,8 +949,15 @@ def teacher_test_analytics(
     )
     total_q = len(questions)
 
+    # Только базовые колонки — чтобы не падать, если leave_count/hidden_seconds ещё нет в БД
     attempts = (
         db.query(models.TestAttempt)
+        .options(load_only(
+            models.TestAttempt.id,
+            models.TestAttempt.test_id,
+            models.TestAttempt.student_id,
+            models.TestAttempt.score,
+        ))
         .filter(
             models.TestAttempt.test_id == test_id,
             models.TestAttempt.score.isnot(None),
@@ -924,17 +966,19 @@ def teacher_test_analytics(
     )
 
     q_stats = {
-        q.id: {"correct": 0, "wrong": 0, "text": q.text, "answers": q.answers}
+        q.id: {"correct": 0, "wrong": 0, "text": q.text}
         for q in questions
     }
 
     students_out = []
-    score_sum = 0
+    score_sum = 0.0
     for att in attempts:
         student = db.query(User).filter(User.id == att.student_id).first()
         percent = (att.score / total_q * 100) if total_q and att.score is not None else None
         if percent is not None:
             score_sum += percent
+
+        leave_count, hidden_seconds = read_cheat_stats(db, att.id)
 
         students_out.append(JournalStudentScore(
             student_id=att.student_id,
@@ -942,8 +986,8 @@ def teacher_test_analytics(
             score=att.score,
             total=total_q,
             percent=percent,
-            leave_count=getattr(att, "leave_count", None) or 0,
-            hidden_seconds=getattr(att, "hidden_seconds", None) or 0,
+            leave_count=leave_count,
+            hidden_seconds=hidden_seconds,
             attempt_id=att.id,
         ))
 
@@ -979,7 +1023,7 @@ def teacher_test_analytics(
         hardest = min(question_stats, key=lambda x: x.correct_percent)
 
     avg_percent = round(score_sum / len(attempts), 1) if attempts else None
-    students_out.sort(key=lambda s: s.username.lower())
+    students_out.sort(key=lambda s: (s.username or "").lower())
 
     return TestAnalytics(
         test_id=test.id,
@@ -991,7 +1035,6 @@ def teacher_test_analytics(
         questions=question_stats,
         students=students_out,
     )
-
 
 
 
@@ -1062,6 +1105,12 @@ def teacher_gradebook(
         for t in tests:
             att = (
                 db.query(TestAttempt)
+                .options(load_only(
+                    TestAttempt.id,
+                    TestAttempt.test_id,
+                    TestAttempt.student_id,
+                    TestAttempt.score,
+                ))
                 .filter(
                     TestAttempt.test_id == t.id,
                     TestAttempt.student_id == st.id,
