@@ -177,45 +177,65 @@ def send_max_message(
     text: str,
     button_url: str | None = None,
     button_text: str = "Открыть тест",
-) -> bool:
+) -> tuple[bool, str]:
     """
     Отправка сообщения ученику через MAX Bot API.
-    Токен тот же, что у бота: MAX_TOKEN (как в max_bot/settings и max_auth).
+    Возвращает (ok, error_message).
+    Токен: MAX_TOKEN (тот же, что у бота).
     """
     import httpx
-    token = os.getenv("MAX_TOKEN", "")
+    token = (os.getenv("MAX_TOKEN") or "").strip()
     if not token:
-        print("MAX notify: MAX_TOKEN не задан")
-        return False
-    payload = {"text": text}
-    if button_url:
-        # Обычная HTTPS-ссылка (тот же origin, что у мини-приложения / QR)
-        payload["attachments"] = [{
-            "type": "inline_keyboard",
-            "payload": {
-                "buttons": [[{
-                    "type": "link",
-                    "text": button_text,
-                    "url": button_url,
-                }]]
-            }
-        }]
-    try:
-        r = httpx.post(
-            f"https://platform-api2.max.ru/messages?user_id={int(user_max_id)}",
-            headers={
-                "Authorization": token,
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=15,
-        )
-        if r.status_code != 200:
-            print("MAX notify status:", r.status_code, r.text[:300])
-        return r.status_code == 200
-    except Exception as e:
-        print("MAX notify error:", e)
-        return False
+        msg = "MAX_TOKEN не задан в переменных окружения Railway"
+        print("MAX notify:", msg)
+        return False, msg
+
+    def _post(payload: dict) -> tuple[bool, str]:
+        try:
+            r = httpx.post(
+                f"https://platform-api2.max.ru/messages?user_id={int(user_max_id)}",
+                headers={
+                    "Authorization": token,
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=20,
+            )
+            if r.status_code == 200:
+                return True, ""
+            err = f"HTTP {r.status_code}: {r.text[:400]}"
+            print("MAX notify status:", err)
+            return False, err
+        except Exception as e:
+            err = f"exception: {e}"
+            print("MAX notify error:", err)
+            return False, err
+
+    # 1) С кнопкой-ссылкой (если есть)
+    if button_url and str(button_url).startswith("http"):
+        payload = {
+            "text": text,
+            "attachments": [{
+                "type": "inline_keyboard",
+                "payload": {
+                    "buttons": [[{
+                        "type": "link",
+                        "text": button_text,
+                        "url": button_url,
+                    }]]
+                }
+            }],
+        }
+        ok, err = _post(payload)
+        if ok:
+            return True, ""
+        # fallback без кнопки — иногда API ругается на url
+        print("MAX notify: retry without button for", user_max_id, err)
+        ok2, err2 = _post({"text": text})
+        return (ok2, err2 if not ok2 else "")
+
+    ok, err = _post({"text": text})
+    return ok, err
 
 
 
@@ -300,13 +320,37 @@ def notify_students_about_test(
         text += f"\n🔗 {link}"
 
     sent, failed = 0, 0
+    errors: list[str] = []
+    token_ok = bool((os.getenv("MAX_TOKEN") or "").strip())
     for st in students:
-        ok = send_max_message(st.max_id, text, button_url=link)
+        ok, err = send_max_message(st.max_id, text, button_url=link)
         if ok:
             sent += 1
         else:
             failed += 1
-    return {"sent": sent, "failed": failed, "total": len(students), "link": link}
+            # Не больше 5 деталей, чтобы ответ не раздувался
+            if len(errors) < 5:
+                errors.append(f"user {st.max_id}: {err or 'unknown'}")
+    out = {
+        "sent": sent,
+        "failed": failed,
+        "total": len(students),
+        "link": link,
+        "token_present": token_ok,
+        "bot_username": bot_username() or None,
+    }
+    if errors:
+        out["errors"] = errors
+    if not token_ok:
+        out["hint"] = "Добавьте MAX_TOKEN в Variables сервиса backend на Railway (тот же токен, что у бота)."
+    elif failed and sent == 0:
+        out["hint"] = (
+            "Сообщения не доставлены. Частые причины: "
+            "1) ученик ни разу не писал боту (/start или /id) — сначала пусть напишет; "
+            "2) неверный MAX_TOKEN на Railway; "
+            "3) смотрите errors и логи backend."
+        )
+    return out
 
 def write_cheat_stats(db: Session, attempt_id: int, leave_count: int, hidden_seconds: int) -> None:
     try:
