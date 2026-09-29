@@ -289,7 +289,10 @@ async function loadTest() {
     userAnswers = {};
 
     // Таймер: берём из теста или из ответа start
-    timeLimitMinutes = attempt.time_limit_minutes ?? test.time_limit_minutes ?? null;
+    const sec = attempt.time_limit_seconds ?? test.time_limit_seconds
+        ?? (test.time_limit_minutes ? test.time_limit_minutes * 60 : null);
+    timeLimitMinutes = sec ? sec / 60 : null;
+    window._timeLimitSeconds = sec;
 
     document.getElementById("stepCode").classList.add("hidden");
     document.getElementById("stepQuestion").classList.remove("hidden");
@@ -305,7 +308,7 @@ function startTimer() {
         return;
     }
 
-    remainingSeconds = timeLimitMinutes * 60;
+    remainingSeconds = window._timeLimitSeconds || Math.round(timeLimitMinutes * 60);
     const timerBar = document.getElementById("timerBar");
     timerBar.classList.remove("hidden", "warning", "danger");
     updateTimerDisplay();

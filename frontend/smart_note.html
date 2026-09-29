@@ -364,7 +364,7 @@
             }
 
             // 3. Редирект на прохождение с кодом в hash (код не показываем)
-            location.href = "/student.html#code=" + saved.code;
+            location.href = "/student.html#code=" + saved.code + "&autostart=1";
 
         } catch (e) {
             alert("Ошибка: " + e.message);

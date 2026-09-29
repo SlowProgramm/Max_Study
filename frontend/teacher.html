@@ -208,8 +208,16 @@
     <label for="count">Количество вопросов</label>
     <input id="count" type="number" value="5" min="1" max="20">
 
-    <label for="timeLimit">Время (минуты, 0 = без ограничения)</label>
-    <input id="timeLimit" type="number" min="0" value="0" placeholder="0 = без ограничения">
+    <label for="timeMin">Время на тест</label>
+    <div class="row" style="margin-bottom:12px">
+      <input id="timeMin" type="number" min="0" value="0" placeholder="мин" style="flex:1">
+      <span style="color:#6b7280">мин</span>
+      <input id="timeSec" type="number" min="0" max="59" value="0" placeholder="сек" style="flex:1">
+      <span style="color:#6b7280">сек</span>
+    </div>
+
+    <label for="description">Описание (для страницы входа)</label>
+    <textarea id="description" placeholder="Необязательно: о чём тест, что взять с собой…"></textarea>
 
     <div class="form-actions">
         <button id="generateBtn" onclick="generateTest()">Сгенерировать</button>
@@ -223,9 +231,11 @@
 
 <div id="editor"></div>
 
-<div class="editor-actions">
-    <button id="addQuestionButton" class="ghost" style="display:none" onclick="addQuestion()">+ Добавить вопрос</button>
-    <button id="saveButton" style="display:none" onclick="saveTest()">Опубликовать тест</button>
+<div class="editor-actions" id="editorActions" style="display:none">
+    <button id="addQuestionButton" class="ghost" onclick="addQuestion()">+ Добавить вопрос</button>
+    <button id="draftButton" class="ghost" onclick="saveTest(true, false)">💾 В черновики</button>
+    <button id="saveButton" onclick="saveTest(false, false)">Опубликовать</button>
+    <button id="saveNotifyButton" class="success" onclick="saveTest(false, true)">Опубликовать и уведомить</button>
 </div>
 
 
@@ -249,8 +259,7 @@ async function generateTest(){
     if (genBtn) { genBtn.disabled = true; genBtn.textContent = "Генерация…"; }
     if (loading) loading.classList.add("show");
     document.getElementById("editor").innerHTML = "";
-    document.getElementById("saveButton").style.display = "none";
-    document.getElementById("addQuestionButton").style.display = "none";
+    const ea = document.getElementById("editorActions"); if (ea) ea.style.display = "none";
 
 
 
@@ -294,8 +303,7 @@ async function generateTest(){
             });
         }
         renderEditor();
-        document.getElementById("saveButton").style.display = "block";
-        document.getElementById("addQuestionButton").style.display = "block";
+        document.getElementById("editorActions").style.display = "flex";
     } catch (e) {
         alert("Ошибка сети: " + (e.message || e));
     } finally {
@@ -623,102 +631,66 @@ function deleteAnswer(
 
 
 
-async function saveTest(){
+async function saveTest(asDraft = false, notify = false) {
     const saveBtn = document.getElementById("saveButton");
-    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Публикуем…"; }
+    const draftBtn = document.getElementById("draftButton");
+    const notifyBtn = document.getElementById("saveNotifyButton");
+    [saveBtn, draftBtn, notifyBtn].forEach(b => { if (b) b.disabled = true; });
+    if (saveBtn) saveBtn.textContent = asDraft ? "Сохраняем…" : "Публикуем…";
 
+    const timeMin = Number(document.getElementById("timeMin")?.value || 0);
+    const timeSec = Number(document.getElementById("timeSec")?.value || 0);
+    const description = (document.getElementById("description")?.value || "").trim() || null;
 
-    const timeLimitRaw = Number(document.getElementById("timeLimit").value);
-    const timeLimit = (timeLimitRaw > 0) ? timeLimitRaw : null;
-
-    const response =
-    await maxFetch(
-        "/tests/save",
-        {
-
-
-            method:"POST",
-
-
-            headers:{
-
-                "Content-Type":"application/json"
-
-            },
-
-
-            body:JSON.stringify({
-
-                title:
-                generatedTest.title,
-
-                time_limit_minutes: timeLimit,
-
-                questions:
-                generatedTest.questions
-
-
-            })
-
-
+    try {
+        const response = await maxFetch("/tests/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                title: generatedTest.title,
+                description: description,
+                time_limit_minutes: timeMin,
+                time_limit_seconds: timeSec,
+                is_draft: !!asDraft,
+                notify: !!notify && !asDraft,
+                questions: generatedTest.questions,
+            }),
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            alert(maxErrorText(response.status, result));
+            return;
         }
-    );
 
+        const timeInfo = result.time_limit_seconds
+            ? `<p>⏱ Время: <b>${Math.floor(result.time_limit_seconds/60)} мин ${result.time_limit_seconds%60} сек</b></p>`
+            : `<p>⏱ Без ограничения времени</p>`;
+        const draftInfo = result.is_draft
+            ? `<p>Черновик сохранён — откройте «Черновики», чтобы уведомить класс.</p>`
+            : `<p>Тест опубликован</p>`;
+        const notifyInfo = result.notify
+            ? `<p>📢 Уведомления: ${result.notify.sent} из ${result.notify.total}</p>`
+            : "";
 
-
-    const result =
-        await response.json();
-
-
-    if(!response.ok){
-        alert(maxErrorText(response.status, result));
-        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Опубликовать тест"; }
-        return;
+        document.getElementById("testResult").innerHTML = `
+        <div class="result">
+            <h2>${result.is_draft ? "💾 Черновик" : "✅ Тест готов"}</h2>
+            ${draftInfo}
+            <p>Код для учеников:</p>
+            <div class="code">${result.code}</div>
+            ${timeInfo}
+            ${notifyInfo}
+            <p style="margin-top:12px">
+              <a href="/drafts_page">Черновики</a> ·
+              <a href="/test_entry?code=${result.code}">Страница входа</a>
+            </p>
+        </div>`;
+    } catch (e) {
+        alert("Ошибка: " + e.message);
+    } finally {
+        [saveBtn, draftBtn, notifyBtn].forEach(b => { if (b) b.disabled = false; });
+        if (saveBtn) saveBtn.textContent = "Опубликовать";
     }
-
-
-
-    const timeInfo = result.time_limit_minutes
-        ? `<p>⏱ Время на тест: <b>${result.time_limit_minutes} мин.</b></p>`
-        : `<p>⏱ Ограничение времени: нет</p>`;
-
-    document
-    .getElementById("testResult")
-    .innerHTML = `
-
-
-    <div class="result">
-
-
-        <h2>
-        ✅ Тест опубликован
-        </h2>
-
-
-        <p>
-        Код для учеников:
-        </p>
-
-
-        <div class="code">
-
-        ${result.code}
-
-        </div>
-
-        ${timeInfo}
-
-        <p>
-        Скопируйте этот код и отправьте ученикам
-        </p>
-
-
-    </div>
-
-
-    `;
-
-
 }
 
 

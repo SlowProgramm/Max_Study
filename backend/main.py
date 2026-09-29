@@ -21,6 +21,9 @@ from backend.schemas import (
     GradebookResponse,
     GradebookStudent,
     GradebookScore,
+    DraftTestItem,
+    NotifyTestRequest,
+    TestEntryInfo,
 )
 from backend.models import Class, ClassMember, TestAttempt
 from sqlalchemy import func
@@ -141,6 +144,90 @@ def read_cheat_stats(db: Session, attempt_id: int) -> tuple[int, int]:
         db.rollback()
     return 0, 0
 
+
+
+def compute_time_limit_seconds(minutes: int | None, seconds: int | None) -> int | None:
+    m = minutes or 0
+    s = seconds or 0
+    total = m * 60 + s
+    return total if total > 0 else None
+
+
+def resolve_time_limit_seconds(test) -> int | None:
+    """Итоговое время в секундах (поддержка legacy time_limit_minutes)."""
+    if getattr(test, "time_limit_seconds", None):
+        return test.time_limit_seconds
+    mins = getattr(test, "time_limit_minutes", None)
+    if mins and mins > 0:
+        return mins * 60
+    return None
+
+
+def send_max_message(user_max_id: int, text: str, button_url: str | None = None, button_text: str = "Открыть тест") -> bool:
+    """Отправка сообщения ученику через MAX Bot API."""
+    import httpx
+    token = os.getenv("MAX_TOKEN", "")
+    if not token:
+        return False
+    payload = {"text": text}
+    if button_url:
+        payload["attachments"] = [{
+            "type": "inline_keyboard",
+            "payload": {
+                "buttons": [[{"type": "link", "text": button_text, "url": button_url}]]
+            }
+        }]
+    try:
+        r = httpx.post(
+            f"https://platform-api2.max.ru/messages?user_id={int(user_max_id)}",
+            headers={
+                "Authorization": token,
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=15,
+        )
+        return r.status_code == 200
+    except Exception as e:
+        print("MAX notify error:", e)
+        return False
+
+
+def notify_students_about_test(db: Session, teacher_id: int, test, class_id: int | None = None) -> dict:
+    app_url = (os.getenv("APP_URL") or "").rstrip("/")
+    code = test.access_code
+    link = f"{app_url}/test_entry?code={code}" if app_url else f"/test_entry?code={code}"
+
+    q = (
+        db.query(User)
+        .join(ClassMember, ClassMember.student_id == User.id)
+        .join(Class, Class.id == ClassMember.class_id)
+        .filter(Class.teacher_id == teacher_id)
+    )
+    if class_id:
+        q = q.filter(Class.id == class_id)
+    students = q.distinct().all()
+
+    time_s = resolve_time_limit_seconds(test)
+    time_line = ""
+    if time_s:
+        mm, ss = divmod(time_s, 60)
+        time_line = f"\n⏱ Время: {mm} мин {ss} сек" if mm else f"\n⏱ Время: {ss} сек"
+
+    text = (
+        f"📚 Новый тест: {test.title or 'Без названия'}"
+        f"{time_line}"
+        f"\n🔑 Код: {code}"
+    )
+
+    sent, failed = 0, 0
+    for st in students:
+        ok = send_max_message(st.max_id, text, button_url=link if app_url else None)
+        if ok:
+            sent += 1
+        else:
+            failed += 1
+    return {"sent": sent, "failed": failed, "total": len(students), "link": link}
 
 def write_cheat_stats(db: Session, attempt_id: int, leave_count: int, hidden_seconds: int) -> None:
     try:
@@ -375,16 +462,17 @@ def save_test(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    # 0 или None считаем как "без ограничения"
-    time_limit = data.time_limit_minutes
-    if time_limit is not None and time_limit <= 0:
-        time_limit = None
+    total_sec = compute_time_limit_seconds(data.time_limit_minutes, data.time_limit_seconds)
+    time_limit_min = (total_sec // 60) if total_sec else None
 
     test = Test(
         title=data.title,
+        description=data.description,
         creator_id=user.id,
         access_code=generate_code(),
-        time_limit_minutes=time_limit,
+        time_limit_minutes=time_limit_min,
+        time_limit_seconds=total_sec,
+        is_draft=bool(data.is_draft),
     )
     db.add(test)
     db.commit()
@@ -410,11 +498,18 @@ def save_test(
 
     db.commit()
 
+    notify_result = None
+    if data.notify and not test.is_draft:
+        notify_result = notify_students_about_test(db, user.id, test, data.class_id)
+
     return {
-        "message": "Тест создан",
+        "message": "Черновик сохранён" if test.is_draft else "Тест создан",
         "test_id": test.id,
         "code": test.access_code,
         "time_limit_minutes": test.time_limit_minutes,
+        "time_limit_seconds": test.time_limit_seconds,
+        "is_draft": test.is_draft,
+        "notify": notify_result,
     }
 
 
@@ -514,6 +609,8 @@ def start_test(
 
     if not test:
         return {"error": "Тест не найден"}
+    if getattr(test, "is_draft", False):
+        raise HTTPException(404, "Тест ещё не опубликован")
 
     attempt = models.TestAttempt(
         test_id=test.id,
@@ -528,6 +625,7 @@ def start_test(
         "test_id": test.id,
         "student_id": user.id,
         "time_limit_minutes": test.time_limit_minutes,
+        "time_limit_seconds": resolve_time_limit_seconds(test),
     }
 
 
@@ -1163,6 +1261,104 @@ def teacher_gradebook(
 
     return GradebookResponse(tests=test_items, students=students_out)
 
+
+
+
+@app.get("/api/teacher/drafts", response_model=list[DraftTestItem])
+def list_drafts(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    tests = (
+        db.query(Test)
+        .filter(Test.creator_id == user.id, Test.is_draft == True)
+        .order_by(Test.id.desc())
+        .all()
+    )
+    out = []
+    for te in tests:
+        created = None
+        try:
+            if getattr(te, "created_at", None):
+                created = te.created_at.strftime("%d.%m.%Y")
+        except Exception:
+            pass
+        out.append(DraftTestItem(
+            test_id=te.id,
+            title=te.title or "Без названия",
+            description=te.description,
+            access_code=te.access_code or "",
+            time_limit_seconds=resolve_time_limit_seconds(te),
+            created_at=created,
+        ))
+    return out
+
+
+@app.post("/api/teacher/tests/{test_id}/publish")
+def publish_draft(
+    test_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    test = db.query(Test).filter(Test.id == test_id, Test.creator_id == user.id).first()
+    if not test:
+        raise HTTPException(404, "Тест не найден")
+    test.is_draft = False
+    db.commit()
+    return {
+        "message": "Тест опубликован",
+        "test_id": test.id,
+        "code": test.access_code,
+        "is_draft": False,
+    }
+
+
+
+@app.post("/api/teacher/tests/{test_id}/notify")
+def notify_test(
+    test_id: int,
+    data: NotifyTestRequest | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    test = db.query(Test).filter(Test.id == test_id, Test.creator_id == user.id).first()
+    if not test:
+        raise HTTPException(404, "Тест не найден")
+    # публикация при уведомлении
+    if test.is_draft:
+        test.is_draft = False
+        db.commit()
+    class_id = data.class_id if data else None
+    result = notify_students_about_test(db, user.id, test, class_id)
+    return {"message": "Уведомления отправлены", **result}
+
+
+@app.get("/api/tests/entry/{code}", response_model=TestEntryInfo)
+def test_entry_info(code: str, db: Session = Depends(get_db)):
+    test = db.query(Test).filter(Test.access_code == code).first()
+    if not test:
+        raise HTTPException(404, "Тест не найден")
+    if getattr(test, "is_draft", False):
+        raise HTTPException(404, "Тест ещё не опубликован")
+    qcount = db.query(Question).filter(Question.test_id == test.id).count()
+    return TestEntryInfo(
+        id=test.id,
+        title=test.title or "Без названия",
+        description=test.description,
+        access_code=test.access_code,
+        time_limit_seconds=resolve_time_limit_seconds(test),
+        question_count=qcount,
+    )
+
+
+@app.get("/drafts_page")
+def drafts_page():
+    return FileResponse("frontend/drafts_page.html")
+
+
+@app.get("/test_entry")
+def test_entry_page():
+    return FileResponse("frontend/test_entry.html")
 
 @app.get("/history_page")
 def history_page():

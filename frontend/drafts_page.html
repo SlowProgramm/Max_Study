@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://st.max.ru/js/max-web-app.js"></script>
+  <script src="/static/max-auth.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+  <title>Черновики</title>
+  <style>
+    body { max-width: 720px; margin: 0 auto; padding: 16px 14px 48px; }
+    .draft {
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+      padding: 14px; margin-bottom: 12px;
+    }
+    .draft h3 { margin: 0 0 6px; font-size: 16px; }
+    .draft .meta { color: #6b7280; font-size: 13px; margin-bottom: 10px; }
+    .draft .code {
+      font-size: 22px; font-weight: 700; letter-spacing: 3px;
+      margin: 8px 0; text-align: center;
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .actions button { flex: 1; min-width: 120px; font-size: 14px; padding: 10px; }
+    #qrModal {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85);
+      z-index: 100; align-items: center; justify-content: center; flex-direction: column;
+      padding: 20px;
+    }
+    #qrModal.show { display: flex; }
+    #qrModal img { max-width: min(320px, 90vw); background: #fff; padding: 16px; border-radius: 12px; }
+    #qrModal .code-big { color: #fff; font-size: 28px; font-weight: 700; letter-spacing: 4px; margin: 16px 0 8px; }
+    #qrModal button { margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button>
+  <h1>Черновики</h1>
+  <p class="subtitle">Заготовленные тесты. Можно уведомить класс или показать QR.</p>
+  <div id="list"><p class="muted">Загрузка...</p></div>
+
+  <div id="qrModal" onclick="if(event.target===this)closeQr()">
+    <img id="qrImg" alt="QR">
+    <div class="code-big" id="qrCode"></div>
+    <p style="color:#ccc;text-align:center;margin:0">Наведите камеру на QR</p>
+    <button class="ghost" onclick="closeQr()">Закрыть</button>
+  </div>
+
+<script>
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+function fmtTime(sec) {
+  if (!sec) return "без ограничения";
+  const m = Math.floor(sec / 60), s = sec % 60;
+  if (m && s) return `${m} мин ${s} сек`;
+  if (m) return `${m} мин`;
+  return `${s} сек`;
+}
+function entryUrl(code) {
+  return location.origin + "/test_entry?code=" + encodeURIComponent(code);
+}
+function showQr(code) {
+  const url = entryUrl(code);
+  document.getElementById("qrImg").src =
+    "https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=" + encodeURIComponent(url);
+  document.getElementById("qrCode").textContent = code;
+  document.getElementById("qrModal").classList.add("show");
+}
+function closeQr() {
+  document.getElementById("qrModal").classList.remove("show");
+}
+
+async function loadDrafts() {
+  const box = document.getElementById("list");
+  try {
+    const res = await maxFetch("/api/teacher/drafts");
+    if (!res.ok) throw new Error(maxErrorText(res.status, await res.json().catch(() => ({}))));
+    const items = await res.json();
+    if (!items.length) {
+      box.innerHTML = '<p class="muted">Черновиков нет. Сохраните тест как черновик при создании.</p>';
+      return;
+    }
+    box.innerHTML = items.map(d => `
+      <div class="draft">
+        <h3>${escapeHtml(d.title)}</h3>
+        <div class="meta">
+          ${d.created_at ? escapeHtml(d.created_at) + " · " : ""}
+          ⏱ ${fmtTime(d.time_limit_seconds)}
+          ${d.description ? "<br>" + escapeHtml(d.description) : ""}
+        </div>
+        <div class="code">${escapeHtml(d.access_code)}</div>
+        <div class="actions">
+          <button onclick="notifyDraft(${d.test_id})">📢 Уведомить класс</button>
+          <button class="ghost" onclick="showQr('${escapeHtml(d.access_code)}')">QR-код</button>
+          <button class="ghost" onclick="navigator.clipboard.writeText('${escapeHtml(d.access_code)}');alert('Код скопирован')">Копировать код</button>
+          <button class="success" onclick="publishDraft(${d.test_id})">Опубликовать</button>
+        </div>
+      </div>
+    `).join("");
+  } catch (e) {
+    box.innerHTML = `<p class="muted" style="color:#dc2626">${escapeHtml(e.message)}</p>`;
+  }
+}
+
+async function notifyDraft(id) {
+  if (!confirm("Отправить уведомление всем ученикам ваших классов и опубликовать тест?")) return;
+  try {
+    const res = await maxFetch(`/api/teacher/tests/${id}/notify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Ошибка");
+    alert(`Отправлено: ${data.sent} из ${data.total}`);
+    loadDrafts();
+  } catch (e) { alert(e.message); }
+}
+
+async function publishDraft(id) {
+  try {
+    const res = await maxFetch(`/api/teacher/tests/${id}/publish`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Ошибка");
+    alert("Тест опубликован. Код: " + data.code);
+    loadDrafts();
+  } catch (e) { alert(e.message); }
+}
+
+loadDrafts();
+</script>
+</body>
+</html>

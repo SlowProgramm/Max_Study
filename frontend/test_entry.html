@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://st.max.ru/js/max-web-app.js"></script>
+  <script src="/static/max-auth.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+  <title>Начало теста</title>
+  <style>
+    body { max-width: 480px; margin: 0 auto; padding: 24px 16px; }
+    .card {
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 16px;
+      padding: 24px 20px; text-align: center; margin-top: 24px;
+    }
+    .card h1 { font-size: 22px; margin: 0 0 12px; }
+    .card .desc { color: #4b5563; font-size: 15px; line-height: 1.5; margin: 0 0 16px; white-space: pre-wrap; }
+    .info { display: flex; flex-direction: column; gap: 8px; margin: 16px 0 24px; }
+    .info div {
+      background: #f3f4f6; border-radius: 10px; padding: 12px;
+      font-size: 15px; color: #374151;
+    }
+    .start-btn { width: 100%; padding: 16px; font-size: 18px; }
+    .muted { text-align: center; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <button class="back" onclick="location.href='/student_page'">← В меню</button>
+  <div id="box"><p class="muted">Загрузка...</p></div>
+
+<script>
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+function fmtTime(sec) {
+  if (!sec) return null;
+  const m = Math.floor(sec / 60), s = sec % 60;
+  if (m && s) return `${m} мин ${s} сек`;
+  if (m) return `${m} мин`;
+  return `${s} сек`;
+}
+
+async function main() {
+  const params = new URLSearchParams(location.search);
+  let code = params.get("code") || "";
+  const hash = location.hash.match(/code=([A-Z0-9]+)/i);
+  if (!code && hash) code = hash[1];
+
+  const box = document.getElementById("box");
+  if (!code) {
+    box.innerHTML = '<p class="muted">Код теста не указан</p>';
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/tests/entry/" + encodeURIComponent(code));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Тест не найден");
+
+    const timeStr = fmtTime(data.time_limit_seconds);
+    box.innerHTML = `
+      <div class="card">
+        <h1>${escapeHtml(data.title)}</h1>
+        ${data.description ? `<p class="desc">${escapeHtml(data.description)}</p>` : ""}
+        <div class="info">
+          <div>📝 Вопросов: <b>${data.question_count}</b></div>
+          ${timeStr ? `<div>⏱ Время: <b>${timeStr}</b></div>` : `<div>⏱ Без ограничения времени</div>`}
+          <div>🔑 Код: <b>${escapeHtml(data.access_code)}</b></div>
+        </div>
+        <button class="start-btn" onclick="location.href='/student.html#code=${encodeURIComponent(data.access_code)}&autostart=1'">
+          Начать тест
+        </button>
+      </div>
+    `;
+  } catch (e) {
+    box.innerHTML = `<p class="muted" style="color:#dc2626">${escapeHtml(e.message)}</p>`;
+  }
+}
+main();
+</script>
+</body>
+</html>

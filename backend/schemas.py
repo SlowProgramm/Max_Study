@@ -138,6 +138,10 @@ class TestPublic(BaseModel):
 
     time_limit_minutes: int | None = None
 
+    time_limit_seconds: int | None = None
+
+    is_draft: bool = False
+
     questions: list[QuestionPublic] = []
 
 
@@ -178,11 +182,20 @@ class SaveTestRequest(BaseModel):
 
     title: str
 
+    description: str | None = None
+
     # Устарело: создатель берётся из проверенных данных MAX, значение игнорируется.
     creator_id: int | None = None
 
-    # Ограничение времени на весь тест в минутах (None / 0 = без ограничения)
+    # Время: минуты + секунды (итого в секундах на бэке)
     time_limit_minutes: int | None = None
+    time_limit_seconds: int | None = None
+
+    is_draft: bool = False
+    # сразу разослать уведомление ученикам классов
+    notify: bool = False
+    # опционально: конкретный class_id; если None — все классы учителя
+    class_id: int | None = None
 
     questions: list[QuestionSave]
 
@@ -454,3 +467,25 @@ class StudentAttemptDetail(BaseModel):
     hidden_seconds: int = 0
     wrong_answers: list[dict] = []
     hardest_question_text: str | None = None
+
+
+class DraftTestItem(BaseModel):
+    test_id: int
+    title: str
+    description: str | None = None
+    access_code: str
+    time_limit_seconds: int | None = None
+    created_at: str | None = None
+
+
+class NotifyTestRequest(BaseModel):
+    class_id: int | None = None
+
+
+class TestEntryInfo(BaseModel):
+    id: int
+    title: str
+    description: str | None = None
+    access_code: str
+    time_limit_seconds: int | None = None
+    question_count: int = 0

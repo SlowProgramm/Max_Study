@@ -82,8 +82,11 @@ class Test(Base):
     title = Column(String)
     description = Column(Text)
     access_code = Column(String)
-    # Ограничение времени на весь тест в минутах (None = без ограничения)
-    time_limit_minutes = Column(Integer, nullable=True)
+    # Ограничение времени на весь тест в секундах (None = без ограничения)
+    time_limit_minutes = Column(Integer, nullable=True)  # legacy
+    time_limit_seconds = Column(Integer, nullable=True)
+    # Черновик: не опубликован, можно уведомить позже
+    is_draft = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
     questions = relationship(
         "Question",

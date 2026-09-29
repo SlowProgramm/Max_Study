@@ -261,9 +261,15 @@ function onVisibilityChange() {
     }
 }
 
-async function loadTest() {
+async function loadTest(skipIntro) {
     const code = document.getElementById("code").value.trim();
     if (!code) return alert("Введите код теста");
+
+    // Страница входа (тема, описание, время) — кроме автозапуска после конспекта
+    if (!skipIntro && !window._skipIntro) {
+        location.href = "/test_entry?code=" + encodeURIComponent(code);
+        return;
+    }
 
     // Загружаем тест (без авторизации — этот эндпоинт публичный)
     const res = await fetch(`/tests/code/${code}`);
@@ -289,7 +295,11 @@ async function loadTest() {
     userAnswers = {};
 
     // Таймер: берём из ответа start или из теста
-    timeLimitMinutes = attempt.time_limit_minutes ?? test.time_limit_minutes ?? null;
+    const sec = attempt.time_limit_seconds ?? test.time_limit_seconds
+        ?? (test.time_limit_minutes ? test.time_limit_minutes * 60 : null)
+        ?? (attempt.time_limit_minutes ? attempt.time_limit_minutes * 60 : null);
+    timeLimitMinutes = sec ? sec / 60 : null;
+    window._timeLimitSeconds = sec;
 
     document.getElementById("stepCode").classList.add("hidden");
     document.getElementById("stepQuestion").classList.remove("hidden");
@@ -305,7 +315,7 @@ function startTimer() {
         return;
     }
 
-    remainingSeconds = timeLimitMinutes * 60;
+    remainingSeconds = window._timeLimitSeconds || Math.round(timeLimitMinutes * 60);
     const timerBar = document.getElementById("timerBar");
     timerBar.classList.remove("hidden", "warning", "danger");
     updateTimerDisplay();
@@ -485,7 +495,10 @@ function escapeHtml(s) {
     if (match) {
         const code = match[1];
         document.getElementById("code").value = code;
-        loadTest();
+        // autostart=1 — сразу начать (из конспекта или после test_entry)
+        const auto = /autostart=1/i.test(location.hash) || /autostart=1/i.test(location.search);
+        window._skipIntro = auto;
+        loadTest(auto);
     }
 })();
 </script>
