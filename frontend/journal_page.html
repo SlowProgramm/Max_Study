@@ -6,6 +6,7 @@
     <title>Журнал — оценки</title>
     <script src="https://st.max.ru/js/max-web-app.js"></script>
     <script src="/static/max-auth.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
     <style>
         * { box-sizing: border-box; }
         body {
@@ -179,9 +180,9 @@ function goBack() {
         document.getElementById("detailView").classList.add("hidden");
         document.getElementById("listView").classList.remove("hidden");
         document.getElementById("pageTitle").textContent = "Журнал";
-        document.getElementById("backBtn").onclick = () => history.back();
+        document.getElementById("backBtn").onclick = () => location.href='/teacher_page';
     } else {
-        history.back();
+        location.href='/teacher_page';
     }
 }
 

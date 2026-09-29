@@ -6,6 +6,7 @@
     <title>Мои тесты</title>
     <script src="https://st.max.ru/js/max-web-app.js"></script>
     <script src="/static/max-auth.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
     <style>
         * { box-sizing: border-box; }
         body {
@@ -168,9 +169,9 @@
                 document.getElementById("detailView").classList.add("hidden");
                 document.getElementById("listView").classList.remove("hidden");
                 document.getElementById("pageTitle").textContent = "Мои тесты";
-                document.getElementById("backBtn").onclick = () => history.back();
+                document.getElementById("backBtn").onclick = () => location.href='/student_page';
             } else {
-                history.back();
+                location.href='/student_page';
             }
         }
 

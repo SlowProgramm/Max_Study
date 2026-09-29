@@ -2,49 +2,22 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Учитель — Max Study</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: system-ui, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 24px;
-      background: #f5f7fa;
-    }
-    h1 { font-size: 28px; }
-    .buttons { display: flex; flex-direction: column; gap: 12px; width: 260px; }
-    button {
-      padding: 16px;
-      font-size: 18px;
-      border: none;
-      border-radius: 10px;
-      background: #4c8bf5;
-      color: white;
-      cursor: pointer;
-    }
-    button:hover { background: #3a75db; }
-    .back {
-      background: transparent;
-      color: #4c8bf5;
-      font-size: 14px;
-      padding: 8px;
-      width: auto;
-    }
-    .back:hover { background: transparent; text-decoration: underline; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://st.max.ru/js/max-web-app.js"></script>
+  <script src="/static/max-auth.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+  <title>Учитель — MAX Study</title>
 </head>
 <body>
-  <h1>Меню учителя</h1>
-
-  <div class="buttons">
-    <button onclick="location.href='/journal_page'">Тесты</button>
-    <button onclick="location.href='/class_page'">Журналп</button>
-    <button onclick="location.href='teacher.html'">Создать тест</button>
-    <button class="back" onclick="location.href='/'">← Назад</button>
+  <div class="center-page">
+    <h1>Меню учителя</h1>
+    <p class="subtitle">Управление тестами и классом</p>
+    <div class="menu-stack">
+      <button onclick="location.href='/journal_page'">Журнал оценок</button>
+      <button onclick="location.href='/class_page'">Мой класс</button>
+      <button onclick="location.href='/teacher.html'">Создать тест</button>
+      <button class="ghost" onclick="location.href='/'">← На главную</button>
+    </div>
   </div>
 </body>
 </html>

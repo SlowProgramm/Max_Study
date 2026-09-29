@@ -1,59 +1,21 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <script src="https://st.max.ru/js/max-web-app.js"></script>
-   <script src="/static/max-auth.js"></script>
-    <meta charset="UTF-8">
-    <title>MAX Study</title>
- <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: system-ui, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 24px;
-      background: #f5f7fa;
-    }
-    h1 { font-size: 32px; color: #222; }
-    .buttons {
-      display: flex;
-      gap: 16px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    button {
-      padding: 16px 32px;
-      font-size: 18px;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: transform 0.1s, background 0.15s;
-    }
-    button:hover { transform: translateY(-2px); }
-    button:active { transform: translateY(0); }
-    .teacher { background: #4c8bf5; color: white; }
-    .student { background: #34c759; color: white; }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://st.max.ru/js/max-web-app.js"></script>
+  <script src="/static/max-auth.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+  <title>MAX Study</title>
 </head>
-
 <body>
-
-<h1>Max Study</h1>
-  <p>Выберите роль</p>
-<div class="buttons">
-    <button class="teacher" onclick="location.href='/teacher_page'">Я учитель</button>
-    <button class="student" onclick="location.href='/student_page'">Я ученик</button>
+  <div class="center-page">
+    <h1>MAX Study</h1>
+    <p class="subtitle">Выберите роль</p>
+    <div class="menu-stack">
+      <button class="teacher" onclick="location.href='/teacher_page'">Я учитель</button>
+      <button class="student" onclick="location.href='/student_page'">Я ученик</button>
+    </div>
   </div>
-
-
-
-
-
-
-
-
 </body>
 </html>

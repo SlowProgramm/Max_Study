@@ -7,6 +7,7 @@
 
     <script src="https://st.max.ru/js/max-web-app.js"></script>
     <script src="/static/max-auth.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
 
     <meta name="viewport"
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
@@ -140,10 +141,9 @@
 
 <body>
 
+<button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button>
 
-<h1>
-MAX Study
-</h1>
+<h1>Создание теста</h1>
 
 
 <h2>
@@ -306,11 +306,12 @@ async function generateTest(){
 
 
 
-    generatedTest =
-        await response.json();
-
-
-
+    generatedTest = await response.json();
+    if (generatedTest.questions) {
+        generatedTest.questions.forEach(q => {
+            if (q.explanation == null) q.explanation = "";
+        });
+    }
     renderEditor();
 
 
@@ -385,24 +386,18 @@ function renderEditor(){
 
 
 
+        <label>Текст вопроса</label>
         <input
-
-        value="${question.text}"
-
-        onchange="
-        updateQuestionText(
-            ${index},
-            this.value
-        )
-        "
-
+        value="${escAttr(question.text)}"
+        onchange="updateQuestionText(${index}, this.value)"
         >
 
+        <label>Объяснение (покажется ученику после ответа)</label>
+        <textarea
+        onchange="updateExplanation(${index}, this.value)"
+        >${escText(question.explanation || "")}</textarea>
 
-
-        <h4>
-        Ответы:
-        </h4>
+        <h4>Ответы:</h4>
 
 
 
@@ -533,6 +528,18 @@ function renderEditor(){
 
 
 
+
+
+function escAttr(s) {
+    return String(s ?? "").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+}
+function escText(s) {
+    return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;");
+}
+
+function updateExplanation(questionIndex, value) {
+    generatedTest.questions[questionIndex].explanation = value;
+}
 
 function updateQuestionText(
     questionIndex,
