@@ -1,14 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Журнал — оценки</title>
-    <script src="https://st.max.ru/js/max-web-app.js"></script>
-    <script src="/static/max-auth.js"></script>
-    <link rel="stylesheet" href="/static/style.css">
-    <style>
-        * { box-sizing: border-box; }
+<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <title> Журнал — оценки</title> <script src="https://st.max.ru/js/max-web-app.js"></script> <script src="/static/max-auth.js"></script> <link rel="stylesheet" href="/static/style.css"> <style> * { box-sizing: border-box; }
         body {
             font-family: system-ui, -apple-system, sans-serif;
             max-width: 900px;
@@ -147,31 +139,14 @@
         }
         .stat-box .num { font-size: 24px; font-weight: 700; }
         .stat-box .lbl { font-size: 12px; color: #6b7280; margin-top: 2px; }
-    </style>
+    
+        @media (max-width: 520px) {
+            th, td { padding: 8px 6px; font-size: 12px; }
+            .bar-label { width: 90px; font-size: 12px; }
+        }
+</style>
 </head>
-<body>
-    <button class="back" id="backBtn" onclick="goBack()">← Назад</button>
-    <h1 id="pageTitle">Журнал</h1>
-
-    <div id="listView">
-        <div id="testList"><p class="muted">Загрузка...</p></div>
-    </div>
-
-    <div id="detailView" class="hidden">
-        <div class="stats-row" id="statsRow"></div>
-        <div class="card hardest" id="hardestBox"></div>
-        <div class="card">
-            <h2>Оценки учеников</h2>
-            <div id="studentsTable"></div>
-        </div>
-        <div class="card">
-            <h2>Статистика по вопросам</h2>
-            <p style="font-size:13px;color:#6b7280;margin:0 0 12px">Зелёный — правильные, красный фон — ошибки</p>
-            <div id="chartBox"></div>
-        </div>
-    </div>
-
-<script>
+<body> <button class="back" id="backBtn" onclick="goBack()">← Назад</button> <h1 id="pageTitle"> Журнал</h1> <div id="listView"> <div id="testList"><p class="muted"> Загрузка...</p></div> </div> <div id="detailView" class="hidden"> <div class="stats-row" id="statsRow"></div> <div class="card hardest" id="hardestBox"></div> <div class="card"> <h2> Оценки учеников</h2> <div id="studentsTable"></div> </div> <div class="card"> <h2> Статистика по вопросам</h2> <p style="font-size:13px;color:#6b7280;margin:0 0 12px"> Зелёный — правильные, красный фон — ошибки</p> <div id="chartBox"></div> </div> </div> <script>
 let currentTestId = null;
 
 function goBack() {
@@ -229,18 +204,11 @@ async function loadTests() {
         }
         const items = await res.json();
         if (!items.length) {
-            box.innerHTML = '<p class="muted">У вас пока нет созданных тестов.</p>';
+            box.innerHTML = '<p class="muted"> У вас пока нет созданных тестов.</p>';
             return;
         }
         box.innerHTML = '<div class="test-list">' + items.map(t => `
-            <div class="test-card" onclick="openAnalytics(${t.test_id})">
-                <div>
-                    <div class="title">${escapeHtml(t.title)}</div>
-                    <div class="meta">Код: ${escapeHtml(t.access_code)}${t.created_at ? " · " + escapeHtml(t.created_at) : ""}</div>
-                </div>
-                <span class="badge">${t.attempt_count} сдач</span>
-            </div>
-        `).join("") + "</div>";
+            <div class="test-card" onclick="openAnalytics(${t.test_id})"> <div> <div class="title">${escapeHtml(t.title)}</div> <div class="meta"> Код: ${escapeHtml(t.access_code)}${t.created_at ? " · " + escapeHtml(t.created_at) : ""}</div> </div> <span class="badge">${t.attempt_count} сдач</span> </div> `).join("") + "</div>";
     } catch (e) {
         box.innerHTML = `<p class="muted error">${escapeHtml(e.message)}</p>`;
     }
@@ -253,7 +221,7 @@ async function openAnalytics(testId) {
     document.getElementById("pageTitle").textContent = "Аналитика теста";
     document.getElementById("backBtn").onclick = goBack;
 
-    document.getElementById("statsRow").innerHTML = '<p class="muted">Загрузка...</p>';
+    document.getElementById("statsRow").innerHTML = '<p class="muted"> Загрузка...</p>';
     document.getElementById("hardestBox").innerHTML = "";
     document.getElementById("studentsTable").innerHTML = "";
     document.getElementById("chartBox").innerHTML = "";
@@ -269,7 +237,7 @@ async function openAnalytics(testId) {
     } catch (e) {
         console.error("analytics error", e);
         document.getElementById("statsRow").innerHTML =
-            `<p class="muted error">Не удалось загрузить оценки: ${escapeHtml(e.message)}</p>`;
+            `<p class="muted error"> Не удалось загрузить оценки: ${escapeHtml(e.message)}</p>`;
         document.getElementById("studentsTable").innerHTML = "";
     }
 }
@@ -278,69 +246,39 @@ function renderAnalytics(data) {
     document.getElementById("pageTitle").textContent = data.title;
 
     document.getElementById("statsRow").innerHTML = `
-        <div class="stat-box"><div class="num">${data.attempt_count}</div><div class="lbl">Сдач</div></div>
-        <div class="stat-box"><div class="num">${data.question_count}</div><div class="lbl">Вопросов</div></div>
-        <div class="stat-box"><div class="num">${data.avg_percent != null ? data.avg_percent + "%" : "—"}</div><div class="lbl">Средний %</div></div>
-    `;
+        <div class="stat-box"><div class="num">${data.attempt_count}</div><div class="lbl"> Сдач</div></div> <div class="stat-box"><div class="num">${data.question_count}</div><div class="lbl"> Вопросов</div></div> <div class="stat-box"><div class="num">${data.avg_percent != null ? data.avg_percent + "%" : "—"}</div><div class="lbl"> Средний %</div></div> `;
 
     const h = data.hardest_question;
+    const hardestEl = document.getElementById("hardestBox");
     if (h) {
-        document.getElementById("hardestBox").innerHTML = `
-            <h3>Самый сложный вопрос</h3>
-            <p>${escapeHtml(h.text)}</p>
-            <p style="margin-top:8px;font-size:13px;color:#991b1b">
-                Правильно: ${h.correct_count} / ${h.total_answers}
+        hardestEl.style.display = "";
+        hardestEl.innerHTML = `
+            <h3> Самый сложный вопрос</h3> <p>${escapeHtml(h.text)}</p> <p style="margin-top:8px;font-size:13px;color:#991b1b"> Правильно: ${h.correct_count} / ${h.total_answers}
                 (${h.correct_percent}%)
-            </p>
-        `;
+            </p> `;
     } else {
-        document.getElementById("hardestBox").innerHTML =
-            "<p class=\"muted\" style=\"padding:0;margin:0\">Нет данных по вопросам</p>";
+        hardestEl.style.display = "none";
+        hardestEl.innerHTML = "";
     }
 
     // таблица учеников
     if (!data.students.length) {
         document.getElementById("studentsTable").innerHTML =
-            '<p class="muted" style="padding:12px 0">Ещё никто не сдавал</p>';
+            '<p class="muted" style="padding:12px 0"> Ещё никто не сдавал</p>';
     } else {
         document.getElementById("studentsTable").innerHTML = `
-            <table>
-                <thead>
-                    <tr>
-                        <th>ФИО</th>
-                        <th>Оценка</th>
-                        <th>%</th>
-                        <th>Уходы</th>
-                        <th>Не на странице</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${data.students.map(s => `
-                        <tr>
-                            <td>${escapeHtml(s.username)}</td>
-                            <td class="${scoreClass(s.percent)}">
-                                ${s.score != null ? s.score + " / " + s.total : "—"}
-                            </td>
-                            <td class="${scoreClass(s.percent)}">
-                                ${s.percent != null ? Math.round(s.percent) + "%" : "—"}
-                            </td>
-                            <td class="${s.leave_count > 0 ? "cheat-warn" : ""}">
-                                ${s.leave_count || 0}
-                            </td>
-                            <td class="${s.hidden_seconds > 30 ? "cheat-warn" : ""}">
-                                ${fmtTime(s.hidden_seconds || 0)}
-                            </td>
-                        </tr>
-                    `).join("")}
-                </tbody>
-            </table>
-        `;
+            <table> <thead> <tr> <th> ФИО</th> <th> Оценка</th> <th>%</th> <th> Уходы / вне стр.</th> </tr> </thead> <tbody> ${data.students.map(s => `
+                        <tr> <td>${escapeHtml(s.username)}</td> <td class="${scoreClass(s.percent)}"> ${s.score != null ? s.score + " / " + s.total : "—"}
+                            </td> <td class="${scoreClass(s.percent)}"> ${s.percent != null ? Math.round(s.percent) + "%" : "—"}
+                            </td> <td class="${(s.leave_count > 0 || s.hidden_seconds > 30) ? "cheat-warn" : ""}"> ${s.leave_count || 0} / ${fmtTime(s.hidden_seconds || 0)}
+                            </td> </tr> `).join("")}
+                </tbody> </table> `;
     }
 
     // диаграмма по вопросам
     if (!data.questions.length) {
         document.getElementById("chartBox").innerHTML =
-            '<p class="muted" style="padding:0;margin:0">Нет вопросов</p>';
+            '<p class="muted" style="padding:0;margin:0"> Нет вопросов</p>';
         return;
     }
     document.getElementById("chartBox").innerHTML = data.questions.map((q, i) => {
@@ -348,14 +286,7 @@ function renderAnalytics(data) {
         const okW = (q.correct_count / tot * 100);
         const label = `В${i + 1}`;
         return `
-            <div class="bar-row" title="${escapeHtml(q.text)}">
-                <div class="bar-label">${label}: ${escapeHtml(q.text.slice(0, 40))}${q.text.length > 40 ? "…" : ""}</div>
-                <div class="bar-track">
-                    <div class="bar-ok" style="width:${okW}%"></div>
-                </div>
-                <div class="bar-pct">${q.correct_percent}%</div>
-            </div>
-        `;
+            <div class="bar-row" title="${escapeHtml(q.text)}"> <div class="bar-label">${label}: ${escapeHtml(q.text.slice(0, 40))}${q.text.length > 40 ? "…" : ""}</div> <div class="bar-track"> <div class="bar-ok" style="width:${okW}%"></div> </div> <div class="bar-pct">${q.correct_percent}%</div> </div> `;
     }).join("");
 }
 

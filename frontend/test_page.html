@@ -1,14 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://st.max.ru/js/max-web-app.js"></script>
-    <script src="/static/max-auth.js"></script>
-    <link rel="stylesheet" href="/static/style.css">
-    <title>Прохождение теста</title>
-    <style>
-        * { box-sizing: border-box; }
+<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <script src="https://st.max.ru/js/max-web-app.js"></script> <script src="/static/max-auth.js"></script> <link rel="stylesheet" href="/static/style.css"> <title> Прохождение теста</title> <style> * { box-sizing: border-box; }
         body {
             font-family: system-ui, -apple-system, sans-serif;
             max-width: 720px;
@@ -180,43 +172,13 @@
         }
     </style>
 </head>
-<body>
-
-<h1>Прохождение теста</h1>
-
-<!-- Шаг 1: ввод кода -->
-<div id="stepCode">
-    <div class="code-row">
-        <input id="code" placeholder="Код теста" />
-        <button onclick="loadTest()">Начать</button>
-    </div>
-</div>
-
-<!-- Шаг 2: вопрос -->
-<div id="stepQuestion" class="hidden">
-    <div id="timerBar" class="hidden">⏱ <span id="timerText">--:--</span></div>
-    <div class="progress"><div id="progressBar" style="width:0"></div></div>
-
-    <div class="question-header" id="questionCounter"></div>
-    <div class="question-text" id="questionText"></div>
-    <div id="answers"></div>
-
-    <div class="nav-row">
-        <button class="ghost" id="prevBtn" onclick="prevQuestion()">← Назад</button>
-        <button id="nextBtn" onclick="nextQuestion()">Далее →</button>
-    </div>
-</div>
-
-<!-- Шаг 3: результат -->
-<div id="stepResult" class="hidden">
-    <div class="result-card" id="resultCard"></div>
-    <div id="wrongList"></div>
-    <div class="nav-row" style="margin-top:24px">
-        <button class="ghost" onclick="location.href='/student_page'">← В меню</button>
-    </div>
-</div>
-
-<script>
+<body> <h1> Прохождение теста</h1> <!-- Шаг 1: ввод кода -->
+<div id="stepCode"> <div class="code-row"> <input id="code" placeholder="Код теста" /> <button onclick="loadTest()"> Начать</button> </div>
+</div> <!-- Шаг 2: вопрос -->
+<div id="stepQuestion" class="hidden"> <div id="timerBar" class="hidden"> <span id="timerText">--:--</span></div> <div class="progress"><div id="progressBar" style="width:0"></div></div> <div class="question-header" id="questionCounter"></div> <div class="question-text" id="questionText"></div> <div id="answers"></div> <div class="nav-row"> <button class="ghost" id="prevBtn" onclick="prevQuestion()">← Назад</button> <button id="nextBtn" onclick="nextQuestion()"> Далее →</button> </div>
+</div> <!-- Шаг 3: результат -->
+<div id="stepResult" class="hidden"> <div class="result-card" id="resultCard"></div> <div id="wrongList"></div> <div class="nav-row" style="margin-top:24px"> <button class="ghost" onclick="location.href='/student_page'">← В меню</button> </div>
+</div> <script>
 let attemptId = null;
 let questions = [];
 let currentIndex = 0;
@@ -366,9 +328,7 @@ function renderQuestion() {
         const div = document.createElement("label");
         div.className = "answer-option" + (checked ? " selected" : "");
         div.innerHTML = `
-            <input type="radio" name="q_${q.id}" value="${a.id}" ${checked ? "checked" : ""}>
-            <span>${escapeHtml(a.text)}</span>
-        `;
+            <input type="radio" name="q_${q.id}" value="${a.id}" ${checked ? "checked" : ""}> <span>${escapeHtml(a.text)}</span> `;
         div.querySelector("input").addEventListener("change", () => {
             userAnswers[q.id] = a.id;
             // перерисуем только selected-класс
@@ -451,31 +411,20 @@ function showResult(data) {
     const cls = percent >= 70 ? "ok" : percent >= 40 ? "mid" : "bad";
 
     document.getElementById("resultCard").innerHTML = `
-        <h2>Результат</h2>
-        <div class="score ${cls}">${data.score} / ${data.total}</div>
-        <div class="percent">${Math.round(percent)}% правильных</div>
-    `;
+        <h2> Результат</h2> <div class="score ${cls}">${data.score} / ${data.total}</div> <div class="percent">${Math.round(percent)}% правильных</div> `;
 
     const wrongBox = document.getElementById("wrongList");
     if (!data.wrong_answers || data.wrong_answers.length === 0) {
-        wrongBox.innerHTML = '<p class="muted" style="text-align:center">🎉 Все ответы правильные!</p>';
+        wrongBox.innerHTML = '<p class="muted" style="text-align:center"> Все ответы правильные!</p>';
         return;
     }
 
     wrongBox.innerHTML = `
-        <h2 style="margin-bottom:12px">Разбор ошибок</h2>
-        ${data.wrong_answers.map(w => `
-            <div class="wrong-item">
-                <h3>❌ ${escapeHtml(w.question)}</h3>
-                <p class="your">Ваш ответ: ${w.your_answer ? escapeHtml(w.your_answer) : "<i>не выбран</i>"}</p>
-                <p class="correct">Правильный ответ: ${escapeHtml(w.correct_answer ?? "—")}</p>
-                ${w.explanation ? `
-                    <div class="explain">
-                        <strong>Объяснение:</strong> ${escapeHtml(w.explanation)}
-                    </div>
-                ` : ""}
-            </div>
-        `).join("")}
+        <h2 style="margin-bottom:12px"> Разбор ошибок</h2> ${data.wrong_answers.map(w => `
+            <div class="wrong-item"> <h3> ${escapeHtml(w.question)}</h3> <p class="your"> Ваш ответ: ${w.your_answer ? escapeHtml(w.your_answer) : "<i> не выбран</i>"}</p> <p class="correct"> Правильный ответ: ${escapeHtml(w.correct_answer ?? "—")}</p> ${w.explanation ? `
+                    <div class="explain"> <strong> Объяснение:</strong> ${escapeHtml(w.explanation)}
+                    </div> ` : ""}
+            </div> `).join("")}
     `;
 }
 

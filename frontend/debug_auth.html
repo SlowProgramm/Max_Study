@@ -1,12 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Диагностика входа через MAX</title>
-    <script src="https://st.max.ru/js/max-web-app.js"></script>
-    <style>
-        body { font-family: system-ui, sans-serif; max-width: 640px; margin: 0 auto; padding: 20px 16px 60px; background: #f5f7fa; color: #222; }
+<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <title> Диагностика входа через MAX</title> <script src="https://st.max.ru/js/max-web-app.js"></script> <style> body { font-family: system-ui, sans-serif; max-width: 640px; margin: 0 auto; padding: 20px 16px 60px; background: #f5f7fa; color: #222; }
         h1 { font-size: 20px; margin-bottom: 4px; }
         .sub { color: #666; font-size: 14px; margin-bottom: 16px; }
         .row { background: #fff; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
@@ -21,18 +15,7 @@
         pre { background: #fff; border-radius: 10px; padding: 12px; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
     </style>
 </head>
-<body>
-    <h1>Диагностика входа через MAX</h1>
-    <p class="sub" id="step-label"></p>
-
-    <div id="rows"></div>
-
-    <a class="btn" id="go-step2" href="/debug_auth?step=2">Проверить переход на другую страницу</a>
-    <button class="sec" id="copy-btn">Скопировать отчёт</button>
-    <pre id="report"></pre>
-
-    <script>
-    const STORE_KEY = "max_init_data_backup";
+<body> <h1> Диагностика входа через MAX</h1> <p class="sub" id="step-label"></p> <div id="rows"></div> <a class="btn" id="go-step2" href="/debug_auth?step=2"> Проверить переход на другую страницу</a> <button class="sec" id="copy-btn"> Скопировать отчёт</button> <pre id="report"></pre> <script> const STORE_KEY = "max_init_data_backup";
     const step = new URLSearchParams(location.search).get("step") || "1";
     const rowsEl = document.getElementById("rows");
     const report = [];
@@ -48,7 +31,7 @@
         const div = document.createElement("div");
         div.className = "row " + state;
         div.innerHTML = `<div class="t"></div><div class="d"></div>`;
-        div.children[0].textContent = ({ok:"✅ ", fail:"❌ ", warn:"⚠️ ", wait:"… "}[state]) + title;
+        div.children[0].textContent = ({ok:" ", fail:" ", warn:" ", wait:"… "}[state]) + title;
         div.children[1].textContent = details || "";
         rowsEl.appendChild(div);
         report.push(({ok:"[OK]", fail:"[FAIL]", warn:"[WARN]", wait:"[..]"}[state]) + " " + title + (details ? " — " + details : ""));

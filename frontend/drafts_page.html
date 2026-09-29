@@ -1,14 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script src="https://st.max.ru/js/max-web-app.js"></script>
-  <script src="/static/max-auth.js"></script>
-  <link rel="stylesheet" href="/static/style.css">
-  <title>Мои тесты</title>
-  <style>
-    body { max-width: 720px; margin: 0 auto; padding: 16px 14px 48px; }
+<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <script src="https://st.max.ru/js/max-web-app.js"></script> <script src="/static/max-auth.js"></script> <link rel="stylesheet" href="/static/style.css"> <title> Мои тесты</title> <style> body { max-width: 720px; margin: 0 auto; padding: 16px 14px 48px; }
     .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
     .tabs button {
       flex: 1; background: #e5e7eb; color: #111; padding: 10px;
@@ -30,18 +22,7 @@
     .badge.live { background: #dcfce7; color: #166534; }
   </style>
 </head>
-<body>
-  <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button>
-  <h1>Мои тесты</h1>
-  <p class="subtitle">Черновики (запланированные) и опубликованные — откройте карточку для QR и уведомления.</p>
-
-  <div class="tabs">
-    <button type="button" class="active" id="tabDraft" onclick="setTab('draft')">Запланированные</button>
-    <button type="button" id="tabLive" onclick="setTab('live')">Опубликованные</button>
-  </div>
-  <div id="list"><p class="muted">Загрузка...</p></div>
-
-<script>
+<body> <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button> <h1> Мои тесты</h1> <p class="subtitle"> Черновики (запланированные) и опубликованные — откройте карточку для QR и уведомления.</p> <div class="tabs"> <button type="button" class="active" id="tabDraft" onclick="setTab('draft')"> Запланированные</button> <button type="button" id="tabLive" onclick="setTab('live')"> Опубликованные</button> </div> <div id="list"><p class="muted"> Загрузка...</p></div> <script>
 let _all = [];
 let _tab = "draft";
 
@@ -68,22 +49,15 @@ function render() {
   const items = _all.filter(t => _tab === "draft" ? t.is_draft : !t.is_draft);
   if (!items.length) {
     box.innerHTML = _tab === "draft"
-      ? '<p class="muted">Нет запланированных. Сохраните тест как черновик при создании.</p>'
-      : '<p class="muted">Нет опубликованных тестов.</p>';
+      ? '<p class="muted"> Нет запланированных. Сохраните тест как черновик при создании.</p>'
+      : '<p class="muted"> Нет опубликованных тестов.</p>';
     return;
   }
   box.innerHTML = items.map(d => `
-    <div class="item" onclick="location.href='/teacher_test?id=${d.test_id}'">
-      <h3>
-        ${escapeHtml(d.title)}
-        <span class="badge ${d.is_draft ? "draft" : "live"}">${d.is_draft ? "черновик" : "опубликован"}</span>
-      </h3>
-      <div class="meta">
-        ${d.created_at ? escapeHtml(d.created_at) + " · " : ""}
-        код ${escapeHtml(d.access_code)} · ⏱ ${fmtTime(d.time_limit_seconds)}
-      </div>
-    </div>
-  `).join("");
+    <div class="item" onclick="location.href='/teacher_test?id=${d.test_id}'"> <h3> ${escapeHtml(d.title)}
+        <span class="badge ${d.is_draft ? "draft" : "live"}">${d.is_draft ? "черновик" : "опубликован"}</span> </h3> <div class="meta"> ${d.created_at ? escapeHtml(d.created_at) + " · " : ""}
+        код ${escapeHtml(d.access_code)} ·  ${fmtTime(d.time_limit_seconds)}
+      </div> </div> `).join("");
 }
 
 async function load() {

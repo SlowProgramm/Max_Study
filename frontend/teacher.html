@@ -1,24 +1,6 @@
 <!DOCTYPE html>
-<html lang="ru">
-
-<head>
-
-    <meta charset="UTF-8">
-
-    <script src="https://st.max.ru/js/max-web-app.js"></script>
-    <script src="/static/max-auth.js"></script>
-    <link rel="stylesheet" href="/static/style.css">
-
-    <meta name="viewport"
-          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
-
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-
-    <title>MAX Study</title>
-
-
-    <style>
-        body {
+<html lang="ru"> <head> <meta charset="UTF-8"> <script src="https://st.max.ru/js/max-web-app.js"></script> <script src="/static/max-auth.js"></script> <link rel="stylesheet" href="/static/style.css"> <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"> <meta http-equiv="X-UA-Compatible" content="ie=edge"> <title> MAX Study</title> <style> body {
             max-width: 720px;
             margin: 0 auto;
             padding: 16px 14px 48px;
@@ -189,65 +171,10 @@
             }
             .editor-actions button { width: auto; flex: 1; }
         }
-    </style>
-
-
-</head>
-
-
-<body>
-
-<button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button>
-
-<h1>Создание теста</h1>
-
-<div class="form-card">
-    <label for="topic">Тема</label>
-    <input id="topic" type="text" placeholder="Например: Фотосинтез">
-
-    <label for="count">Количество вопросов</label>
-    <input id="count" type="number" value="5" min="1" max="20">
-
-    <label for="timeMin">Время на тест</label>
-    <div class="row" style="margin-bottom:12px">
-      <input id="timeMin" type="number" min="0" value="0" placeholder="мин" style="flex:1">
-      <span style="color:#6b7280">мин</span>
-      <input id="timeSec" type="number" min="0" max="59" value="0" placeholder="сек" style="flex:1">
-      <span style="color:#6b7280">сек</span>
-    </div>
-
-    <label for="description">Описание (для страницы входа)</label>
-    <textarea id="description" placeholder="Необязательно: о чём тест, что взять с собой…"></textarea>
-
-    <div class="form-actions">
-        <button id="generateBtn" onclick="generateTest()">Сгенерировать</button>
-    </div>
-</div>
-
-<div id="loadingBox" class="loading-box">
-    <div class="spinner"></div>
-    <p>Генерируем тест… Это может занять до минуты</p>
-</div>
-
-<div id="editor"></div>
-
-<div class="editor-actions" id="editorActions" style="display:none">
-    <button id="addQuestionButton" class="ghost" onclick="addQuestion()">+ Добавить вопрос</button>
-    <button id="draftButton" class="ghost" onclick="saveTest(true, false)">В черновики</button>
-    <button id="saveButton" onclick="saveTest(false, false)">Опубликовать</button>
-<!--    <button id="saveNotifyButton" class="success" onclick="saveTest(false, true)">Опубликовать и уведомить</button>-->
-</div>
-
-
-
-<div id="testResult"></div>
-
-
-
-<script>
-
-
-let generatedTest = null;
+    </style> </head> <body> <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button> <h1> Создание теста</h1> <div class="form-card"> <label for="topic"> Тема</label> <input id="topic" type="text" placeholder="Например: Фотосинтез"> <label for="count"> Количество вопросов</label> <input id="count" type="number" value="5" min="1" max="20"> <label for="timeMin"> Время на тест</label> <div class="row" style="margin-bottom:12px"> <input id="timeMin" type="number" min="0" value="0" placeholder="мин" style="flex:1"> <span style="color:#6b7280"> мин</span> <input id="timeSec" type="number" min="0" max="59" value="0" placeholder="сек" style="flex:1"> <span style="color:#6b7280"> сек</span> </div> <label for="description"> Описание (для страницы входа)</label> <textarea id="description" placeholder="Необязательно: о чём тест, что взять с собой…"></textarea> <div class="form-actions"> <button id="generateBtn" onclick="generateTest()"> Сгенерировать</button> </div>
+</div> <div id="loadingBox" class="loading-box"> <div class="spinner"></div> <p> Генерируем тест… Это может занять до минуты</p>
+</div> <div id="editor"></div> <div class="editor-actions" id="editorActions" style="display:none"> <button id="addQuestionButton" class="ghost" onclick="addQuestion()">+ Добавить вопрос</button> <button id="draftButton" class="ghost" onclick="saveTest(true, false)"> В черновики</button> <button id="saveButton" onclick="saveTest(false, false)"> Опубликовать</button> <button id="saveNotifyButton" class="success" onclick="saveTest(false, true)"> Опубликовать и уведомить</button>
+</div> <div id="testResult"></div> <script> let generatedTest = null;
 
 
 
@@ -331,11 +258,8 @@ function renderEditor(){
 
     editor.innerHTML += `
 
-        <h2>
-        ${generatedTest.title}
-        </h2>
-
-    `;
+        <h2> ${generatedTest.title}
+        </h2> `;
 
 
 
@@ -344,30 +268,12 @@ function renderEditor(){
 
 
         let html = `
-        <div class="question">
-        <div class="q-head">
-            <h3>Вопрос ${index + 1}</h3>
-            <button class="delete" onclick="deleteQuestion(${index})">Удалить</button>
-        </div>
-
-
-
-        <label>Текст вопроса</label>
-        <input
+        <div class="question"> <div class="q-head"> <h3> Вопрос ${index + 1}</h3> <button class="delete" onclick="deleteQuestion(${index})"> Удалить</button> </div> <label> Текст вопроса</label> <input
         value="${escAttr(question.text)}"
         onchange="updateQuestionText(${index}, this.value)"
-        >
-
-        <label>Объяснение (покажется ученику после ответа)</label>
-        <textarea
+        > <label> Объяснение (покажется ученику после ответа)</label> <textarea
         onchange="updateExplanation(${index}, this.value)"
-        >${escText(question.explanation || "")}</textarea>
-
-        <h4>Ответы:</h4>
-
-
-
-        `;
+        >${escText(question.explanation || "")}</textarea> <h4> Ответы:</h4> `;
 
 
 
@@ -376,19 +282,11 @@ function renderEditor(){
 
 
             html += `
-            <div class="answer ${answer.is_correct ? "selected-answer" : ""}">
-                <label class="correct-toggle" title="Отметить правильным">
-                    <input type="radio" name="correct_${index}"
+            <div class="answer ${answer.is_correct ? "selected-answer" : ""}"> <label class="correct-toggle" title="Отметить правильным"> <input type="radio" name="correct_${index}"
                         ${answer.is_correct ? "checked" : ""}
-                        onchange="updateCorrect(${index}, ${answerIndex})">
-                    <span>✓</span>
-                </label>
-                <input type="text" value="${escAttr(answer.text)}"
+                        onchange="updateCorrect(${index}, ${answerIndex})"> <span>✓</span> </label> <input type="text" value="${escAttr(answer.text)}"
                     onchange="updateAnswerText(${index}, ${answerIndex}, this.value)"
-                    placeholder="Вариант ответа">
-                <button class="delete" onclick="deleteAnswer(${index}, ${answerIndex})">✕</button>
-            </div>
-            `;
+                    placeholder="Вариант ответа"> <button class="delete" onclick="deleteAnswer(${index}, ${answerIndex})">✕</button> </div> `;
 
 
             }
@@ -400,18 +298,9 @@ function renderEditor(){
         html += `
 
 
-        <button onclick="addAnswer(${index})">
+        <button onclick="addAnswer(${index})"> + Добавить ответ
 
-        + Добавить ответ
-
-        </button>
-
-
-
-        </div>
-
-
-        `;
+        </button> </div> `;
 
 
 
@@ -663,13 +552,13 @@ async function saveTest(asDraft = false, notify = false) {
         }
 
         const timeInfo = result.time_limit_seconds
-            ? `<p>⏱ Время: <b>${Math.floor(result.time_limit_seconds/60)} мин ${result.time_limit_seconds%60} сек</b></p>`
-            : `<p>⏱ Без ограничения времени</p>`;
+            ? `<p> Время: <b>${Math.floor(result.time_limit_seconds/60)} мин ${result.time_limit_seconds%60} сек</b></p>`
+            : `<p> Без ограничения времени</p>`;
         const draftInfo = result.is_draft
-            ? `<p>Черновик сохранён — откройте «Черновики», чтобы уведомить класс.</p>`
-            : `<p>Тест опубликован</p>`;
+            ? `<p> Черновик сохранён — откройте «Черновики», чтобы уведомить класс.</p>`
+            : `<p> Тест опубликован</p>`;
         const notifyInfo = result.notify
-            ? `<p>📢 Уведомления: ${result.notify.sent} из ${result.notify.total}</p>`
+            ? `<p> Уведомления: ${result.notify.sent} из ${result.notify.total}</p>`
             : "";
 
         // После сохранения — карточка теста (QR, код, уведомление всегда доступны)
@@ -679,17 +568,10 @@ async function saveTest(asDraft = false, notify = false) {
         }
 
         document.getElementById("testResult").innerHTML = `
-        <div class="result">
-            <h2>💾 Запланирован</h2>
-            ${draftInfo}
-            <p>Код для учеников:</p>
-            <div class="code">${result.code}</div>
-            ${timeInfo}
-            <p style="margin-top:12px">
-              <a href="/teacher_test?id=${result.test_id}">Открыть карточку (QR)</a> ·
-              <a href="/my_tests">Мои тесты</a>
-            </p>
-        </div>`;
+        <div class="result"> <h2> Запланирован</h2> ${draftInfo}
+            <p> Код для учеников:</p> <div class="code">${result.code}</div> ${timeInfo}
+            <p style="margin-top:12px"> <a href="/teacher_test?id=${result.test_id}"> Открыть карточку (QR)</a> ·
+              <a href="/my_tests"> Мои тесты</a> </p> </div>`;
     } catch (e) {
         alert("Ошибка: " + e.message);
     } finally {
@@ -700,9 +582,4 @@ async function saveTest(asDraft = false, notify = false) {
 
 
 
-</script>
-
-
-</body>
-
-</html>
+</script> </body> </html>

@@ -1,14 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Мой класс</title>
-    <script src="https://st.max.ru/js/max-web-app.js"></script>
-    <script src="/static/max-auth.js"></script>
-    <link rel="stylesheet" href="/static/style.css">
-    <style>
-        * { box-sizing: border-box; }
+<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <title> Мой класс</title> <script src="https://st.max.ru/js/max-web-app.js"></script> <script src="/static/max-auth.js"></script> <link rel="stylesheet" href="/static/style.css"> <style> * { box-sizing: border-box; }
         body {
             font-family: system-ui, sans-serif;
             max-width: 720px;
@@ -192,62 +184,9 @@
         .grades-section h2 { font-size: 17px; margin: 0 0 10px; }
     </style>
 </head>
-<body>
-    <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button>
-    <h1>Мой класс</h1>
-    <p class="subtitle">Ученики и классы, которые вы ведёте.</p>
-
-    <div id="msg" class="msg"></div>
-
-    <!-- Переключатель -->
-    <button class="edit-toggle" id="editToggle" onclick="toggleEdit()">
-        <span>✏️ Редактировать класс</span>
-        <span class="arrow">▾</span>
-    </button>
-
-    <!-- Скрываемая панель -->
-    <div class="edit-panel" id="editPanel">
-        <div class="card">
-            <h2>Создать класс</h2>
-            <div class="row">
-                <input id="className" placeholder="Например, 10-А" />
-                <button class="btn" onclick="createClass()">Создать</button>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>Добавить ученика по MAX ID</h2>
-            <div class="row">
-                <input id="maxId" type="number" placeholder="MAX ID ученика" />
-                <select id="classSelectAdd"></select>
-                <button class="btn" onclick="addStudent()">Добавить</button>
-            </div>
-            <p class="muted" style="margin: 8px 0 0;">
-                Ученик должен сначала написать боту команду <code>/id</code>.
-            </p>
-        </div>
-
-        <div class="card">
-            <h2>Удалить ученика по MAX ID</h2>
-            <div class="row">
-                <input id="removeMaxId" type="number" placeholder="MAX ID для удаления" />
-                <select id="classSelectRemove"></select>
-                <button class="btn danger"  style="color:white" onclick="removeStudentByMaxId()">Удалить</button>
-            </div>
-            <p class="muted" style="margin: 8px 0 0;">
-                Чтобы не удалить по ошибке — нужно явно ввести MAX ID ученика.
-            </p>
-        </div>
-    </div>
-
-    <!-- Единая таблица: ученики и оценки -->
-    <div class="grades-section" id="gradesSection">
-        <h2>Оценки за тесты</h2>
-        <div id="grades"><p class="muted">Загрузка...</p></div>
-    </div>
-
-    <script>
-        const API = "/api/class";
+<body> <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button> <h1> Мой класс</h1> <p class="subtitle"> Ученики и классы, которые вы ведёте.</p> <div id="msg" class="msg"></div> <!-- Переключатель --> <button class="edit-toggle" id="editToggle" onclick="toggleEdit()"> <span> Редактировать класс</span> <span class="arrow">▾</span> </button> <!-- Скрываемая панель --> <div class="edit-panel" id="editPanel"> <div class="card"> <h2> Создать класс</h2> <div class="row"> <input id="className" placeholder="Например, 10-А" /> <button class="btn" onclick="createClass()"> Создать</button> </div> </div> <div class="card"> <h2> Добавить ученика по MAX ID</h2> <div class="row"> <input id="maxId" type="number" placeholder="MAX ID ученика" /> <select id="classSelectAdd"></select> <button class="btn" onclick="addStudent()"> Добавить</button> </div> <p class="muted" style="margin: 8px 0 0;"> Ученик должен сначала написать боту команду <code>/id</code>.
+            </p> </div> <div class="card"> <h2> Удалить ученика по MAX ID</h2> <div class="row"> <input id="removeMaxId" type="number" placeholder="MAX ID для удаления" /> <select id="classSelectRemove"></select> <button class="btn danger"  style="color:white" onclick="removeStudentByMaxId()"> Удалить</button> </div> <p class="muted" style="margin: 8px 0 0;"> Чтобы не удалить по ошибке — нужно явно ввести MAX ID ученика.
+            </p> </div> </div> <!-- Единая таблица: ученики и оценки --> <div class="grades-section" id="gradesSection"> <h2> Оценки за тесты</h2> <div id="grades"><p class="muted"> Загрузка...</p></div> </div> <script> const API = "/api/class";
         let editMode = false;
 
         const msgEl = document.getElementById("msg");
@@ -403,29 +342,19 @@
                 }
                 const data = await res.json();
                 if (!data.students || !data.students.length) {
-                    box.innerHTML = '<p class="empty">Нет учеников в классах. Добавьте учеников в «Редактировать класс».</p>';
+                    box.innerHTML = '<p class="empty"> Нет учеников в классах. Добавьте учеников в «Редактировать класс».</p>';
                     return;
                 }
                 if (!data.tests || !data.tests.length) {
                     // ученики есть, тестов нет — покажем хотя бы список ФИО
-                    box.innerHTML = `<div class="grades-wrap"><table class="grades-table">
-                        <thead><tr><th class="name-col">ФИО</th><th>MAX ID</th></tr></thead>
-                        <tbody>
-                        ${data.students.map(st => `
-                            <tr>
-                                <td class="name-col">${escapeHtml(st.username)}</td>
-                                <td class="score-none">${st.max_id ?? "—"}</td>
-                            </tr>
-                        `).join("")}
-                        </tbody></table></div>
-                        <p class="muted" style="margin-top:8px">Тестов пока нет — оценки появятся после публикаций.</p>`;
+                    box.innerHTML = `<div class="grades-wrap"><table class="grades-table"> <thead><tr><th class="name-col"> ФИО</th><th> MAX ID</th></tr></thead> <tbody> ${data.students.map(st => `
+                            <tr> <td class="name-col">${escapeHtml(st.username)}</td> <td class="score-none">${st.max_id ?? "—"}</td> </tr> `).join("")}
+                        </tbody></table></div> <p class="muted" style="margin-top:8px"> Тестов пока нет — оценки появятся после публикаций.</p>`;
                     return;
                 }
 
-                const head = data.tests.map(t =>
-                    `<th class="test-head" title="${escapeHtml(t.title)}"
-                        onclick="location.href='/journal_page#test=${t.test_id}'">
-                        ${escapeHtml(t.title.length > 16 ? t.title.slice(0, 14) + "…" : t.title)}
+                const head = data.tests.map(t => `<th class="test-head" title="${escapeHtml(t.title)}"
+                        onclick="location.href='/journal_page#test=${t.test_id}'"> ${escapeHtml(t.title.length > 16 ? t.title.slice(0, 14) + "…" : t.title)}
                         ${t.created_at ? `<div style="font-weight:400;color:#6b7280;font-size:11px">${escapeHtml(t.created_at)}</div>` : ""}
                     </th>`
                 ).join("");
@@ -438,20 +367,12 @@
                         const pct = sc.percent != null ? Math.round(sc.percent) : null;
                         return `<td class="${scoreClass(sc.percent)}">${sc.score}/${sc.total}${pct != null ? ` <small>(${pct}%)</small>` : ""}</td>`;
                     }).join("");
-                    return `<tr>
-                        <td class="name-col">
-                            ${escapeHtml(st.username)}
-                            <div style="font-weight:400;color:#9ca3af;font-size:11px">${st.max_id ?? ""}</div>
-                        </td>
-                        ${cells}
+                    return `<tr> <td class="name-col"> ${escapeHtml(st.username)}
+                            <div style="font-weight:400;color:#9ca3af;font-size:11px">${st.max_id ?? ""}</div> </td> ${cells}
                     </tr>`;
                 }).join("");
 
-                box.innerHTML = `<div class="grades-wrap"><table class="grades-table">
-                    <thead><tr><th class="name-col">ФИО</th>${head}</tr></thead>
-                    <tbody>${rows}</tbody>
-                </table></div>
-                <p class="muted" style="margin-top:8px">Нажмите на название теста, чтобы открыть аналитику. Дата под названием — день.месяц создания.</p>`;
+                box.innerHTML = `<div class="grades-wrap"><table class="grades-table"> <thead><tr><th class="name-col"> ФИО</th>${head}</tr></thead> <tbody>${rows}</tbody> </table></div> <p class="muted" style="margin-top:8px"> Нажмите на название теста, чтобы открыть аналитику. Дата под названием — день.месяц создания.</p>`;
             } catch (e) {
                 box.innerHTML = `<p class="empty" style="color:#dc2626">${escapeHtml(e.message)}</p>`;
             }

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <script src="https://st.max.ru/js/max-web-app.js"></script> <script src="/static/max-auth.js"></script> <link rel="stylesheet" href="/static/style.css"> <title> Аналитика — MAX Study</title> <style> body { max-width: 640px; margin: 0 auto; padding: 16px 14px 56px; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    .subtitle { color: #6b7280; margin: 0 0 18px; font-size: 14px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .stat {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 14px 12px;
+      text-align: center;
+    }
+    .stat .num { font-size: 22px; font-weight: 700; color: #111; }
+    .stat .lbl { font-size: 12px; color: #6b7280; margin-top: 4px; }
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .card h2 {
+      font-size: 16px;
+      margin: 0 0 12px;
+      color: #111;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f3f4f6;
+      cursor: pointer;
+    }
+    .row:last-child { border-bottom: none; }
+    .row:active { background: #f9fafb; }
+    .row .title { font-size: 14px; font-weight: 500; flex: 1; min-width: 0; }
+    .row .meta { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .badge {
+      font-size: 13px; font-weight: 700; white-space: nowrap;
+      padding: 4px 8px; border-radius: 8px;
+    }
+    .badge.ok { background: #dcfce7; color: #166534; }
+    .badge.mid { background: #fef3c7; color: #92400e; }
+    .badge.bad { background: #fee2e2; color: #991b1b; }
+    .badge.none { background: #f3f4f6; color: #6b7280; }
+    .rank {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: #eef2ff; color: #3730a3;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; flex-shrink: 0;
+    }
+    .rank.top { background: #fef3c7; color: #92400e; }
+    .muted { color: #6b7280; font-size: 14px; }
+    .section-hint { font-size: 13px; color: #6b7280; margin: -6px 0 10px; }
+  </style>
+</head>
+<body> <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button> <h1> Аналитика</h1> <p class="subtitle"> Сводка по тестам и ученикам</p> <div id="root"><p class="muted"> Загрузка...</p></div> <script>
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+function pctBadge(p) {
+  if (p == null) return '<span class="badge none">—</span>';
+  const cls = p >= 70 ? "ok" : p >= 40 ? "mid" : "bad";
+  return `<span class="badge ${cls}">${Math.round(p)}%</span>`;
+}
+
+async function load() {
+  const root = document.getElementById("root");
+  try {
+    const res = await maxFetch("/api/teacher/dashboard");
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || "Ошибка загрузки");
+
+    const s = d.summary || {};
+    const worst = d.worst_tests || [];
+    const best = d.best_tests || [];
+    const ranking = d.student_ranking || [];
+    const tests = d.tests || [];
+
+    root.innerHTML = `
+      <div class="grid"> <div class="stat"><div class="num">${s.tests_count ?? 0}</div><div class="lbl"> Тестов</div></div> <div class="stat"><div class="num">${s.total_attempts ?? 0}</div><div class="lbl"> Сдач</div></div> <div class="stat"><div class="num">${s.students_who_attempted ?? 0}</div><div class="lbl"> Учеников сдавало</div></div> <div class="stat"><div class="num">${s.overall_avg_percent != null ? s.overall_avg_percent + "%" : "—"}</div><div class="lbl"> Средний %</div></div> </div> <div class="card"> <h2> Сложные тесты</h2> <p class="section-hint"> Самый низкий средний результат (есть хотя бы одна сдача)</p> ${worst.length ? worst.map(t => `
+          <div class="row" onclick="location.href='/journal_page#test=${t.test_id}'"> <div style="flex:1;min-width:0"> <div class="title">${escapeHtml(t.title)}</div> <div class="meta">${t.attempt_count} сдач · ${t.unique_students} уч.</div> </div> ${pctBadge(t.avg_percent)}
+          </div> `).join("") : '<p class="muted"> Пока нет сдач</p>'}
+      </div> <div class="card"> <h2> Лучшие тесты</h2> <p class="section-hint"> Самый высокий средний результат</p> ${best.length ? best.map(t => `
+          <div class="row" onclick="location.href='/journal_page#test=${t.test_id}'"> <div style="flex:1;min-width:0"> <div class="title">${escapeHtml(t.title)}</div> <div class="meta">${t.attempt_count} сдач · ${t.unique_students} уч.</div> </div> ${pctBadge(t.avg_percent)}
+          </div> `).join("") : '<p class="muted"> Пока нет сдач</p>'}
+      </div> <div class="card"> <h2> Рейтинг учеников</h2> <p class="section-hint"> По среднему проценту по всем сданным тестам</p> ${ranking.length ? ranking.map((st, i) => `
+          <div class="row" style="cursor:default"> <div class="rank ${i < 3 ? "top" : ""}">${i + 1}</div> <div style="flex:1;min-width:0"> <div class="title">${escapeHtml(st.username)}</div> <div class="meta">${st.attempts} сдач · лучший ${Math.round(st.best_percent)}% · худший ${Math.round(st.worst_percent)}%</div> </div> ${pctBadge(st.avg_percent)}
+          </div> `).join("") : '<p class="muted"> Пока никто не сдавал</p>'}
+      </div> <div class="card"> <h2> Все тесты</h2> ${tests.length ? tests.map(t => `
+          <div class="row" onclick="location.href='/journal_page#test=${t.test_id}'"> <div style="flex:1;min-width:0"> <div class="title">${escapeHtml(t.title)}</div> <div class="meta">${t.question_count} вопр. · ${t.attempt_count} сдач</div> </div> ${pctBadge(t.avg_percent)}
+          </div> `).join("") : '<p class="muted"> Тестов пока нет</p>'}
+      </div> `;
+  } catch (e) {
+    root.innerHTML = `<p class="muted" style="color:#dc2626">${escapeHtml(e.message)}</p>`;
+  }
+}
+
+load();
+</script>
+</body>
+</html>

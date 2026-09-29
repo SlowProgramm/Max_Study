@@ -1,14 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мои тесты</title>
-    <script src="https://st.max.ru/js/max-web-app.js"></script>
-    <script src="/static/max-auth.js"></script>
-    <link rel="stylesheet" href="/static/style.css">
-    <style>
-        * { box-sizing: border-box; }
+<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title> Мои тесты</title> <script src="https://st.max.ru/js/max-web-app.js"></script> <script src="/static/max-auth.js"></script> <link rel="stylesheet" href="/static/style.css"> <style> * { box-sizing: border-box; }
         body {
             font-family: system-ui, -apple-system, sans-serif;
             max-width: 720px;
@@ -142,26 +134,7 @@
         th { background: #f3f4f6; font-weight: 600; }
     </style>
 </head>
-<body>
-    <button class="back" id="backBtn" onclick="goBack()">← Назад</button>
-    <h1 id="pageTitle">Мои тесты</h1>
-
-    <div id="listView">
-        <div id="list"><p class="muted">Загрузка...</p></div>
-    </div>
-
-    <div id="detailView" class="hidden">
-        <div class="stats-row" id="statsRow"></div>
-        <div id="cheatBox"></div>
-        <div id="hardestBox"></div>
-        <div class="card">
-            <h2>Разбор ошибок</h2>
-            <div id="wrongList"></div>
-        </div>
-    </div>
-
-    <script>
-        let currentAttemptId = null;
+<body> <button class="back" id="backBtn" onclick="goBack()">← Назад</button> <h1 id="pageTitle"> Мои тесты</h1> <div id="listView"> <div id="list"><p class="muted"> Загрузка...</p></div> </div> <div id="detailView" class="hidden"> <div class="stats-row" id="statsRow"></div> <div id="cheatBox"></div> <div id="hardestBox"></div> <div class="card"> <h2> Разбор ошибок</h2> <div id="wrongList"></div> </div> </div> <script> let currentAttemptId = null;
 
         function goBack() {
             if (currentAttemptId) {
@@ -197,19 +170,19 @@
                 }
                 const items = await res.json();
                 if (items.length === 0) {
-                    box.innerHTML = '<p class="muted">Вы ещё не проходили ни одного теста.</p>';
+                    box.innerHTML = '<p class="muted"> Вы ещё не проходили ни одного теста.</p>';
                     return;
                 }
                 box.innerHTML = items.map(renderItem).join("");
             } catch (e) {
-                box.innerHTML = `<p class="muted error">Не удалось загрузить: ${escapeHtml(e.message)}</p>`;
+                box.innerHTML = `<p class="muted error"> Не удалось загрузить: ${escapeHtml(e.message)}</p>`;
             }
         }
 
         function renderItem(a) {
             let scoreHtml;
             if (a.score === null || a.score === undefined) {
-                scoreHtml = '<div class="score none">Не завершён</div>';
+                scoreHtml = '<div class="score none"> Не завершён</div>';
             } else if (a.percent === null) {
                 scoreHtml = `<div class="score">${a.score} / ${a.total}</div>`;
             } else {
@@ -217,19 +190,9 @@
                 scoreHtml = `<div class="score ${cls}">${a.score} / ${a.total} <small>(${Math.round(a.percent)}%)</small></div>`;
             }
 
-            const cheat = (a.leave_count > 0 || a.hidden_seconds > 0)
-                ? `<div class="sub">⚠ уходов: ${a.leave_count || 0}, скрыто: ${fmtTime(a.hidden_seconds || 0)}</div>`
-                : "";
-
             return `
-                <div class="history-item" onclick="openDetail(${a.attempt_id})">
-                    <div>
-                        <div class="title">${escapeHtml(a.test_title)}</div>
-                        ${cheat}
-                    </div>
-                    ${scoreHtml}
-                </div>
-            `;
+                <div class="history-item" onclick="openDetail(${a.attempt_id})"> <div> <div class="title">${escapeHtml(a.test_title)}</div> </div> ${scoreHtml}
+                </div> `;
         }
 
         async function openDetail(attemptId) {
@@ -238,7 +201,7 @@
             document.getElementById("detailView").classList.remove("hidden");
             document.getElementById("pageTitle").textContent = "Подробности";
             document.getElementById("backBtn").onclick = goBack;
-            document.getElementById("statsRow").innerHTML = '<p class="muted">Загрузка...</p>';
+            document.getElementById("statsRow").innerHTML = '<p class="muted"> Загрузка...</p>';
             document.getElementById("cheatBox").innerHTML = "";
             document.getElementById("hardestBox").innerHTML = "";
             document.getElementById("wrongList").innerHTML = "";
@@ -264,58 +227,22 @@
             const cls = pct == null ? "" : pct >= 70 ? "ok" : pct >= 40 ? "mid" : "bad";
 
             document.getElementById("statsRow").innerHTML = `
-                <div class="stat-box">
-                    <div class="num ${cls}" style="color:inherit">${data.score != null ? data.score + " / " + data.total : "—"}</div>
-                    <div class="lbl">Оценка</div>
-                </div>
-                <div class="stat-box">
-                    <div class="num">${pct != null ? pct + "%" : "—"}</div>
-                    <div class="lbl">Процент</div>
-                </div>
-                <div class="stat-box ${data.leave_count > 0 ? "warn" : ""}">
-                    <div class="num">${data.leave_count || 0}</div>
-                    <div class="lbl">Уходов со стр.</div>
-                </div>
-                <div class="stat-box ${(data.hidden_seconds || 0) > 30 ? "warn" : ""}">
-                    <div class="num">${fmtTime(data.hidden_seconds || 0)}</div>
-                    <div class="lbl">Время скрытия</div>
-                </div>
-            `;
-
-            if (data.leave_count > 0 || data.hidden_seconds > 0) {
-                document.getElementById("cheatBox").innerHTML = `
-                    <div class="card" style="border-color:#fecaca;background:#fef2f2">
-                        <h2 style="color:#991b1b;font-size:15px">Контроль присутствия</h2>
-                        <table>
-                            <tr><th>Уходов со страницы</th><td>${data.leave_count || 0}</td></tr>
-                            <tr><th>Время, пока вкладка скрыта</th><td>${fmtTime(data.hidden_seconds || 0)}</td></tr>
-                        </table>
-                    </div>
-                `;
-            }
+                <div class="stat-box"> <div class="num ${cls}" style="color:inherit">${data.score != null ? data.score + " / " + data.total : "—"}</div> <div class="lbl"> Оценка</div> </div> <div class="stat-box"> <div class="num">${pct != null ? pct + "%" : "—"}</div> <div class="lbl"> Процент</div> </div> `;
+            document.getElementById("cheatBox").innerHTML = "";
 
             if (data.hardest_question_text) {
                 document.getElementById("hardestBox").innerHTML = `
-                    <div class="hardest-box">
-                        <h3>Самый сложный вопрос в этом тесте (по всем ученикам)</h3>
-                        <p>${escapeHtml(data.hardest_question_text)}</p>
-                    </div>
-                `;
+                    <div class="hardest-box"> <h3> Самый сложный вопрос в этом тесте (по всем ученикам)</h3> <p>${escapeHtml(data.hardest_question_text)}</p> </div> `;
             }
 
             const wrongs = data.wrong_answers || [];
             if (!wrongs.length) {
                 document.getElementById("wrongList").innerHTML =
-                    '<p class="muted" style="padding:12px 0">🎉 Ошибок нет — все ответы правильные!</p>';
+                    '<p class="muted" style="padding:12px 0"> Ошибок нет — все ответы правильные!</p>';
             } else {
                 document.getElementById("wrongList").innerHTML = wrongs.map(w => `
-                    <div class="wrong-item">
-                        <h3>❌ ${escapeHtml(w.question)}</h3>
-                        <p class="your">Ваш ответ: ${w.your_answer ? escapeHtml(w.your_answer) : "<i>не выбран</i>"}</p>
-                        <p class="correct">Правильный: ${escapeHtml(w.correct_answer ?? "—")}</p>
-                        ${w.explanation ? `<div class="explain"><strong>Объяснение:</strong> ${escapeHtml(w.explanation)}</div>` : ""}
-                    </div>
-                `).join("");
+                    <div class="wrong-item"> <h3>${escapeHtml(w.question)}</h3> <p class="your"> Ваш ответ: ${w.your_answer ? escapeHtml(w.your_answer) : "<i> не выбран</i>"}</p> <p class="correct"> Правильный: ${escapeHtml(w.correct_answer ?? "—")}</p> ${w.explanation ? `<div class="explain"><strong> Объяснение:</strong> ${escapeHtml(w.explanation)}</div>` : ""}
+                    </div> `).join("");
             }
         }
 

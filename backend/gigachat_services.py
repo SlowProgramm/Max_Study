@@ -119,7 +119,7 @@ def create_notes_prompt_by_topic(topic: str) -> str:
 - Приведи ключевые факты, формулы, даты — если применимо.
 - Разбери логику и связи между идеями.
 - Дай 1–3 примера.
-- В конце — блок «## Вопросы для самопроверки» с 3–5 вопросами.
+- Не добавляй блок «Вопросы для самопроверки» и любые вопросы в конце.
 
 Формат ответа — markdown:
 - заголовки через ## и ###
@@ -138,7 +138,7 @@ def create_notes_prompt_by_text(text: str) -> str:
 - Определи главную тему текста и вынеси её в заголовок (## Заголовок).
 - Структурируй материал по смысловым блокам (## / ###).
 - Сохрани важные детали, определения, примеры.
-- В конце — блок «## Вопросы для самопроверки» с 3–5 вопросами по материалу.
+- Не добавляй блок «Вопросы для самопроверки» и любые вопросы в конце.
 
 Формат ответа — markdown:
 - заголовки через ## и ###
@@ -161,12 +161,29 @@ def ask_gigachat_text(system_prompt: str, user_content: str) -> str:
     return response.choices[0].message.content
 
 
+
+def _strip_self_check(text: str) -> str:
+    """Убирает блок «Вопросы для самопроверки» и всё после него."""
+    if not text:
+        return text
+    import re
+    # Обрезаем от заголовка про самопроверку
+    patterns = [
+        r"\n#{1,3}\s*Вопросы\s+для\s+самопроверки[\s\S]*$",
+        r"\n\*\*Вопросы\s+для\s+самопроверки\*\*[\s\S]*$",
+        r"\nВопросы\s+для\s+самопроверки[\s\S]*$",
+    ]
+    out = text
+    for p in patterns:
+        out = re.sub(p, "", out, flags=re.IGNORECASE)
+    return out.strip()
+
 def generate_notes_by_topic(topic: str) -> str:
     prompt = create_notes_prompt_by_topic(topic)
-    return ask_gigachat_text(prompt, topic)
+    return _strip_self_check(ask_gigachat_text(prompt, topic))
 
 
 def generate_notes_by_text(text: str) -> str:
     prompt = create_notes_prompt_by_text(text)
-    return ask_gigachat_text(prompt, text)
+    return _strip_self_check(ask_gigachat_text(prompt, text))
 
