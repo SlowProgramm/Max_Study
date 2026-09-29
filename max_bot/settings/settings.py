@@ -20,7 +20,7 @@ class Settings:
     max_bot_id: int | None = _int_or_none(os.getenv("MAX_BOT_ID"))
     contact_id: int | None = _int_or_none(os.getenv("CONTACT_ID"))
 
-
+# s
 settings = Settings()
 
 if not settings.max_api_key:
