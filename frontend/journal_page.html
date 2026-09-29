@@ -193,14 +193,16 @@ function escapeHtml(s) {
 
 /** Фамилия + первая буква имени: "Иван Иванов" → "Иванов И." */
 function shortName(name) {
-    const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) {
-        const first = parts[0];
-        const last = parts[parts.length - 1];
-        return last + " " + first.charAt(0).toUpperCase() + ".";
-    }
-    return name || "—";
-}
+            const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+            if (!parts.length) return "—";
+            if (parts.length >= 2) {
+                const first = parts[0];
+                const last = parts[parts.length - 1];
+                return last.charAt(0).toUpperCase() + last.slice(1) + " " + first.charAt(0).toUpperCase() + ".";
+            }
+            const w = parts[0];
+            return w.charAt(0).toUpperCase() + w.slice(1);
+        }
 
 
 function scoreClass(pct) {

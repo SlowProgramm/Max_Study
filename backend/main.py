@@ -112,11 +112,19 @@ def generate_code():
 
 
 def short_name(username: str | None) -> str:
-    """Фамилия + первая буква имени: 'Иван Иванов' → 'Иванов И.'"""
+    """
+    'Иван Иванов' → 'Иванов И.'
+    'гриша' / одно слово → 'Гриша' (с заглавной)
+    """
     parts = [p for p in (username or "").strip().split() if p]
+    if not parts:
+        return "—"
     if len(parts) >= 2:
-        return f"{parts[-1]} {parts[0][0].upper()}."
-    return username or "—"
+        first = parts[0]
+        last = parts[-1]
+        return f"{last.capitalize()} {first[0].upper()}."
+    # одно слово — просто имя с заглавной
+    return parts[0][:1].upper() + parts[0][1:]
 
 
 def read_cheat_stats(db: Session, attempt_id: int) -> tuple[int, int]:

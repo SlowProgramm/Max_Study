@@ -375,14 +375,16 @@
         }
 
 
-        function shortName(name) {
+                function shortName(name) {
             const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+            if (!parts.length) return "—";
             if (parts.length >= 2) {
                 const first = parts[0];
                 const last = parts[parts.length - 1];
-                return last + " " + first.charAt(0).toUpperCase() + ".";
+                return last.charAt(0).toUpperCase() + last.slice(1) + " " + first.charAt(0).toUpperCase() + ".";
             }
-            return name || "—";
+            const w = parts[0];
+            return w.charAt(0).toUpperCase() + w.slice(1);
         }
 
         function scoreClass(pct) {
