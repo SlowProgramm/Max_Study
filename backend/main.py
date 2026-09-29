@@ -184,6 +184,8 @@ def send_max_message(
     Токен: MAX_TOKEN (тот же, что у бота).
     """
     import httpx
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     token = (os.getenv("MAX_TOKEN") or "").strip()
     if not token:
         msg = "MAX_TOKEN не задан в переменных окружения Railway"
@@ -191,6 +193,8 @@ def send_max_message(
         return False, msg
 
     def _post(payload: dict) -> tuple[bool, str]:
+        # verify=False: на Railway/многих VPS нет корня Минцифры,
+        # из-за этого SSL: CERTIFICATE_VERIFY_FAILED к platform-api2.max.ru
         try:
             r = httpx.post(
                 f"https://platform-api2.max.ru/messages?user_id={int(user_max_id)}",
@@ -200,6 +204,7 @@ def send_max_message(
                 },
                 json=payload,
                 timeout=20,
+                verify=False,
             )
             if r.status_code == 200:
                 return True, ""
@@ -309,15 +314,15 @@ def notify_students_about_test(
     time_line = ""
     if time_s:
         mm, ss = divmod(time_s, 60)
-        time_line = f"\n⏱ Время: {mm} мин {ss} сек" if mm else f"\n⏱ Время: {ss} сек"
+        time_line = f"\nВремя: {mm} мин {ss} сек" if mm else f"\nВремя: {ss} сек"
 
     text = (
-        f"📚 Новый тест: {test.title or 'Без названия'}"
+        f"Новый тест: {test.title or 'Без названия'}"
         f"{time_line}"
-        f"\n🔑 Код: {code}"
+        f"\nКод: {code}"
     )
     if link:
-        text += f"\n🔗 {link}"
+        text += f"\n{link}"
 
     sent, failed = 0, 0
     errors: list[str] = []
@@ -1120,11 +1125,14 @@ def student_attempt_detail(
                 chosen = next((a for a in q.answers if a.id == cid), None) if cid else None
                 if not (chosen and chosen.is_correct):
                     q_stats[q.id]["wrong"] += 1
-        hardest = max(
-            q_stats.values(),
-            key=lambda s: (s["wrong"] / s["total"] if s["total"] else 0),
-        )
-        hardest_text = hardest["text"]
+        scored = [(sid, st) for sid, st in q_stats.items() if st["total"] > 0]
+        if scored:
+            ratios = [(sid, st["wrong"] / st["total"], st) for sid, st in scored]
+            max_ratio = max(r for _, r, _ in ratios)
+            worst = [st for _, r, st in ratios if r == max_ratio]
+            # Только один однозначно самый сложный и не все ответили верно
+            if len(worst) == 1 and max_ratio > 0:
+                hardest_text = worst[0]["text"]
 
     return StudentAttemptDetail(
         attempt_id=attempt.id,
@@ -1281,8 +1289,13 @@ def teacher_test_analytics(
         ))
 
     hardest = None
-    if question_stats:
-        hardest = min(question_stats, key=lambda x: x.correct_percent)
+    with_answers = [q for q in question_stats if q.total_answers > 0]
+    if with_answers:
+        min_pct = min(q.correct_percent for q in with_answers)
+        worst = [q for q in with_answers if q.correct_percent == min_pct]
+        # Показываем только если один однозначно самый сложный и не 100%
+        if len(worst) == 1 and min_pct < 100.0:
+            hardest = worst[0]
 
     avg_percent = round(score_sum / len(attempts), 1) if attempts else None
     students_out.sort(key=lambda s: (s.username or "").lower())
@@ -1619,3 +1632,154 @@ def history_page():
 @app.get("/journal_page")
 def journal_page():
     return FileResponse("frontend/journal_page.html")
+
+
+@app.get("/analytics_page")
+def analytics_page():
+    return FileResponse("frontend/analytics_page.html")
+
+
+@app.get("/api/teacher/dashboard")
+def teacher_dashboard(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Сводная аналитика для учителя:
+    - статистика по тестам (средний %, число сдач, худшие тесты)
+    - рейтинг учеников
+    """
+    tests = (
+        db.query(Test)
+        .filter(Test.creator_id == user.id, Test.is_draft.is_(False))
+        .order_by(Test.id.desc())
+        .all()
+    )
+    test_ids = [t.id for t in tests]
+
+    # Вопросы по тестам
+    q_counts = {}
+    if test_ids:
+        q_counts = dict(
+            db.query(Question.test_id, func.count(Question.id))
+            .filter(Question.test_id.in_(test_ids))
+            .group_by(Question.test_id)
+            .all()
+        )
+
+    # Все завершённые попытки учителя
+    attempts = []
+    if test_ids:
+        attempts = (
+            db.query(models.TestAttempt)
+            .options(load_only(
+                models.TestAttempt.id,
+                models.TestAttempt.test_id,
+                models.TestAttempt.student_id,
+                models.TestAttempt.score,
+            ))
+            .filter(
+                models.TestAttempt.test_id.in_(test_ids),
+                models.TestAttempt.score.isnot(None),
+            )
+            .all()
+        )
+
+    # Группировка попыток по тесту и ученику
+    by_test: dict[int, list] = {}
+    by_student: dict[int, list] = {}
+    for att in attempts:
+        by_test.setdefault(att.test_id, []).append(att)
+        by_student.setdefault(att.student_id, []).append(att)
+
+    tests_out = []
+    for t in tests:
+        atts = by_test.get(t.id, [])
+        total_q = q_counts.get(t.id, 0) or 0
+        pcts = []
+        for a in atts:
+            if total_q and a.score is not None:
+                pcts.append(a.score / total_q * 100)
+        avg = round(sum(pcts) / len(pcts), 1) if pcts else None
+        tests_out.append({
+            "test_id": t.id,
+            "title": t.title or "Без названия",
+            "access_code": t.access_code or "",
+            "question_count": total_q,
+            "attempt_count": len(atts),
+            "avg_percent": avg,
+            "unique_students": len({a.student_id for a in atts}),
+        })
+
+    # Худшие тесты — с хотя бы одной сдачей, по возрастанию среднего %
+    worst_tests = sorted(
+        [x for x in tests_out if x["attempt_count"] > 0 and x["avg_percent"] is not None],
+        key=lambda x: x["avg_percent"],
+    )[:5]
+
+    # Лучшие тесты
+    best_tests = sorted(
+        [x for x in tests_out if x["attempt_count"] > 0 and x["avg_percent"] is not None],
+        key=lambda x: x["avg_percent"],
+        reverse=True,
+    )[:5]
+
+    # Ученики из классов учителя
+    student_ids = (
+        db.query(ClassMember.student_id)
+        .join(Class, Class.id == ClassMember.class_id)
+        .filter(Class.teacher_id == user.id)
+        .distinct()
+        .all()
+    )
+    student_ids = [sid for (sid,) in student_ids]
+
+    students_meta = {}
+    if student_ids:
+        for u in db.query(User).filter(User.id.in_(student_ids)).all():
+            students_meta[u.id] = u
+
+    ranking = []
+    for sid, atts in by_student.items():
+        # Только ученики из классов (или все, кто сдавал)
+        pcts = []
+        for a in atts:
+            tq = q_counts.get(a.test_id, 0) or 0
+            if tq and a.score is not None:
+                pcts.append(a.score / tq * 100)
+        if not pcts:
+            continue
+        u = students_meta.get(sid) or db.query(User).filter(User.id == sid).first()
+        ranking.append({
+            "student_id": sid,
+            "username": display_student_name(u),
+            "max_id": getattr(u, "max_id", None) if u else None,
+            "attempts": len(pcts),
+            "avg_percent": round(sum(pcts) / len(pcts), 1),
+            "best_percent": round(max(pcts), 1),
+            "worst_percent": round(min(pcts), 1),
+        })
+
+    ranking.sort(key=lambda x: (-x["avg_percent"], -x["attempts"], x["username"] or ""))
+
+    all_pcts = []
+    for x in tests_out:
+        if x["avg_percent"] is not None and x["attempt_count"]:
+            # взвешиваем по числу сдач
+            all_pcts.extend([x["avg_percent"]] * x["attempt_count"])
+    overall_avg = round(sum(all_pcts) / len(all_pcts), 1) if all_pcts else None
+
+    return {
+        "summary": {
+            "tests_count": len(tests),
+            "tests_with_attempts": sum(1 for x in tests_out if x["attempt_count"] > 0),
+            "total_attempts": len(attempts),
+            "students_count": len(student_ids),
+            "students_who_attempted": len(by_student),
+            "overall_avg_percent": overall_avg,
+        },
+        "worst_tests": worst_tests,
+        "best_tests": best_tests,
+        "tests": tests_out,
+        "student_ranking": ranking,
+    }

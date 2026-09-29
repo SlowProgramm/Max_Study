@@ -1,14 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script src="https://st.max.ru/js/max-web-app.js"></script>
-  <script src="/static/max-auth.js"></script>
-  <link rel="stylesheet" href="/static/style.css">
-  <title>Тест</title>
-  <style>
-    body { max-width: 520px; margin: 0 auto; padding: 16px 14px 48px; }
+<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <script src="https://st.max.ru/js/max-web-app.js"></script> <script src="/static/max-auth.js"></script> <link rel="stylesheet" href="/static/style.css"> <title> Тест</title> <style> body { max-width: 520px; margin: 0 auto; padding: 16px 14px 48px; }
     .card {
       background: #fff; border: 1px solid #e5e7eb; border-radius: 14px;
       padding: 20px 16px; margin-bottom: 14px;
@@ -69,30 +61,7 @@
     .notify-actions button { width: 100%; }
   </style>
 </head>
-<body>
-  <button class="back" id="backBtn" onclick="location.href='/my_tests'">← К тестам</button>
-  <div id="box"><p class="muted">Загрузка...</p></div>
-
-  <div id="qrModal" onclick="if(event.target===this)closeQr()">
-    <img id="qrImg" alt="QR">
-    <div class="code-big" id="qrCode"></div>
-    <p id="qrHint" style="color:#ccc;text-align:center;margin:0">Отсканируйте — откроется MAX</p>
-    <button class="ghost" style="margin-top:14px" onclick="closeQr()">Закрыть</button>
-  </div>
-
-  <div id="notifyModal" onclick="if(event.target===this)closeNotifyModal()">
-    <div class="notify-sheet">
-      <h2>📢 Кому отправить уведомление?</h2>
-      <p class="sub">Выберите один или несколько классов. Если ничего не выбрать — всем вашим классам.</p>
-      <div id="classList"><p class="muted">Загрузка классов…</p></div>
-      <div class="notify-actions">
-        <button class="success" id="notifySendBtn" onclick="sendNotify()">Отправить</button>
-        <button class="ghost" onclick="closeNotifyModal()">Отмена</button>
-      </div>
-    </div>
-  </div>
-
-<script>
+<body> <button class="back" id="backBtn" onclick="location.href='/my_tests'">← К тестам</button> <div id="box"><p class="muted"> Загрузка...</p></div> <div id="qrModal" onclick="if(event.target===this)closeQr()"> <img id="qrImg" alt="QR"> <div class="code-big" id="qrCode"></div> <p id="qrHint" style="color:#ccc;text-align:center;margin:0"> Отсканируйте — откроется MAX</p> <button class="ghost" style="margin-top:14px" onclick="closeQr()"> Закрыть</button> </div> <div id="notifyModal" onclick="if(event.target===this)closeNotifyModal()"> <div class="notify-sheet"> <h2> Кому отправить уведомление?</h2> <p class="sub"> Выберите один или несколько классов. Если ничего не выбрать — всем вашим классам.</p> <div id="classList"><p class="muted"> Загрузка классов…</p></div> <div class="notify-actions"> <button class="success" id="notifySendBtn" onclick="sendNotify()"> Отправить</button> <button class="ghost" onclick="closeNotifyModal()"> Отмена</button> </div> </div> </div> <script>
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 }
@@ -141,22 +110,18 @@ function closeQr() {
 async function openNotifyModal() {
   if (!_test) return;
   const list = document.getElementById("classList");
-  list.innerHTML = "<p class=\"muted\">Загрузка классов…</p>";
+  list.innerHTML = "<p class=\"muted\"> Загрузка классов…</p>";
   document.getElementById("notifyModal").classList.add("show");
   try {
     const res = await maxFetch("/api/class/classes");
     const classes = await res.json();
     if (!res.ok) throw new Error(classes.detail || "Не удалось загрузить классы");
     if (!classes.length) {
-      list.innerHTML = "<p class=\"muted\">У вас пока нет классов. Добавьте учеников на странице «Классы».</p>";
+      list.innerHTML = "<p class=\"muted\"> У вас пока нет классов. Добавьте учеников на странице «Классы».</p>";
       return;
     }
     list.innerHTML = classes.map(c => `
-      <label class="class-check">
-        <input type="checkbox" name="cls" value="${c.id}" checked>
-        <span>${escapeHtml(c.name)} <span class="cnt">· ${c.student_count || 0} уч.</span></span>
-      </label>
-    `).join("");
+      <label class="class-check"> <input type="checkbox" name="cls" value="${c.id}" checked> <span>${escapeHtml(c.name)} <span class="cnt">· ${c.student_count || 0} уч.</span></span> </label> `).join("");
   } catch (e) {
     list.innerHTML = `<p class="muted" style="color:#dc2626">${escapeHtml(e.message)}</p>`;
   }
@@ -187,7 +152,7 @@ async function sendNotify() {
     if (data.failed) msg += "\nНе доставлено: " + data.failed;
     if (data.hint) msg += "\n\n" + data.hint;
     if (data.errors && data.errors.length) msg += "\n\nДетали:\n" + data.errors.join("\n");
-    if (data.token_present === false) msg += "\n\n⚠️ MAX_TOKEN не задан на сервере.";
+    if (data.token_present === false) msg += "\n\n MAX_TOKEN не задан на сервере.";
     alert(msg);
     load();
   } catch (e) {
@@ -217,7 +182,7 @@ async function load() {
   const id = params.get("id");
   const box = document.getElementById("box");
   if (!id) {
-    box.innerHTML = '<p class="muted">Не указан id теста</p>';
+    box.innerHTML = '<p class="muted"> Не указан id теста</p>';
     return;
   }
   try {
@@ -227,31 +192,16 @@ async function load() {
     _test = d;
 
     const badge = d.is_draft
-      ? '<span class="badge draft">Черновик / запланирован</span>'
-      : '<span class="badge live">Опубликован</span>';
+      ? '<span class="badge draft"> Черновик / запланирован</span>'
+      : '<span class="badge live"> Опубликован</span>';
 
     box.innerHTML = `
-      <div class="card">
-        ${badge}
-        <h1>${escapeHtml(d.title)}</h1>
-        ${d.description ? `<p class="desc">${escapeHtml(d.description)}</p>` : ""}
-        <div class="row-info">
-          <div>📝 Вопросов: <b>${d.question_count}</b></div>
-          <div>⏱ Время: <b>${fmtTime(d.time_limit_seconds)}</b></div>
-          <div>📊 Сдач: <b>${d.attempt_count}</b></div>
-          ${d.created_at ? `<div>📅 ${escapeHtml(d.created_at)}</div>` : ""}
-        </div>
-        <p class="muted" style="text-align:center;margin:0">Код для входа</p>
-        <div class="code">${escapeHtml(d.access_code)}</div>
-        <div class="actions">
-          <button onclick="showQr()">📱 Показать QR</button>
-          <button class="ghost" onclick="navigator.clipboard.writeText('${escapeHtml(d.access_code)}');alert('Код скопирован')">Копировать код</button>
-          <button class="success" onclick="notify()">📢 Уведомить класс</button>
-          ${d.is_draft ? `<button onclick="publish()">Опубликовать</button>` : ""}
-          ${!d.is_draft ? `<button class="ghost" onclick="location.href='/journal_page#test=${d.test_id}'">Аналитика</button>` : ""}
-        </div>
-      </div>
-    `;
+      <div class="card"> ${badge}
+        <h1>${escapeHtml(d.title)}</h1> ${d.description ? `<p class="desc">${escapeHtml(d.description)}</p>` : ""}
+        <div class="row-info"> <div> Вопросов: <b>${d.question_count}</b></div> <div> Время: <b>${fmtTime(d.time_limit_seconds)}</b></div> <div> Сдач: <b>${d.attempt_count}</b></div> ${d.created_at ? `<div> ${escapeHtml(d.created_at)}</div>` : ""}
+        </div> <p class="muted" style="text-align:center;margin:0"> Код для входа</p> <div class="code">${escapeHtml(d.access_code)}</div> <div class="actions"> <button onclick="showQr()"> Показать QR</button> <button class="ghost" onclick="navigator.clipboard.writeText('${escapeHtml(d.access_code)}');alert('Код скопирован')"> Копировать код</button> <button class="success" onclick="notify()"> Уведомить класс</button> ${d.is_draft ? `<button onclick="publish()"> Опубликовать</button>` : ""}
+          ${!d.is_draft ? `<button class="ghost" onclick="location.href='/journal_page#test=${d.test_id}'"> Аналитика</button>` : ""}
+        </div> </div> `;
   } catch (e) {
     box.innerHTML = `<p class="muted" style="color:#dc2626">${escapeHtml(e.message)}</p>`;
   }
