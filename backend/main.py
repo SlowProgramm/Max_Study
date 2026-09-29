@@ -111,6 +111,15 @@ def generate_code():
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
 
+def short_name(username: str | None) -> str:
+    """Фамилия + первая буква имени: 'Иван Иванов' → 'Иванов И.'"""
+    parts = [p for p in (username or "").strip().split() if p]
+    if len(parts) >= 2:
+        return f"{parts[-1]} {parts[0][0].upper()}."
+    return username or "—"
+
+
+
 # ─── Страницы (HTML) ────────────────────────────
 
 @app.get("/")
@@ -737,8 +746,8 @@ def student_history(
             score=attempt.score,
             total=total,
             percent=percent,
-            leave_count=attempt.leave_count or 0,
-            hidden_seconds=attempt.hidden_seconds or 0,
+            leave_count=getattr(attempt, "leave_count", None) or 0,
+            hidden_seconds=getattr(attempt, "hidden_seconds", None) or 0,
         ))
     return result
 
@@ -929,12 +938,12 @@ def teacher_test_analytics(
 
         students_out.append(JournalStudentScore(
             student_id=att.student_id,
-            username=student.username if student else "—",
+            username=short_name(student.username if student else None),
             score=att.score,
             total=total_q,
             percent=percent,
-            leave_count=att.leave_count or 0,
-            hidden_seconds=att.hidden_seconds or 0,
+            leave_count=getattr(att, "leave_count", None) or 0,
+            hidden_seconds=getattr(att, "hidden_seconds", None) or 0,
             attempt_id=att.id,
         ))
 
@@ -1074,7 +1083,7 @@ def teacher_gradebook(
             ))
         students_out.append(GradebookStudent(
             student_id=st.id,
-            username=st.username,
+            username=short_name(st.username),
             scores=scores,
         ))
 

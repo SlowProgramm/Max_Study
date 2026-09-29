@@ -235,6 +235,7 @@
 
     <script>
         const API = "/api/class";
+        let editMode = false;
 
         const msgEl = document.getElementById("msg");
 
@@ -249,6 +250,9 @@
             const panel = document.getElementById("editPanel");
             btn.classList.toggle("open");
             panel.classList.toggle("open");
+            editMode = panel.classList.contains("open");
+            // перерисовать список, чтобы показать/скрыть «Удалить»
+            loadClasses();
         }
 
         async function api(path, opts = {}) {
@@ -313,7 +317,7 @@
                                         <span class="student-name">${escapeHtml(shortName(s.username))}</span>
                                         <span class="student-meta">max_id: ${s.max_id}</span>
                                     </span>
-                                    <button class="danger" onclick="removeStudent(${c.id}, ${s.id})">Удалить</button>
+                                    ${editMode ? `<button class="danger" onclick="removeStudent(${c.id}, ${s.id})">Удалить</button>` : ""}
                                 </li>
                             `).join("")
                         }
