@@ -1046,6 +1046,12 @@ def teacher_gradebook(
     """Все ученики учителя (из классов) + оценки по всем тестам."""
     tests = (
         db.query(Test)
+        .options(load_only(
+            Test.id,
+            Test.title,
+            Test.access_code,
+            Test.creator_id,
+        ))
         .filter(Test.creator_id == user.id)
         .order_by(Test.id.desc())
         .all()
@@ -1067,14 +1073,6 @@ def teacher_gradebook(
             .all()
         )
 
-    def _fmt_dt(dt):
-        if not dt:
-            return None
-        try:
-            return dt.strftime("%d.%m.%Y")
-        except Exception:
-            return str(dt)[:10]
-
     test_items = [
         JournalTestItem(
             test_id=t.id,
@@ -1082,7 +1080,7 @@ def teacher_gradebook(
             access_code=t.access_code or "",
             question_count=q_counts.get(t.id, 0),
             attempt_count=a_counts.get(t.id, 0),
-            created_at=_fmt_dt(getattr(t, "created_at", None)),
+            created_at=None,
         )
         for t in tests
     ]

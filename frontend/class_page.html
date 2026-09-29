@@ -339,6 +339,7 @@
                 input.value = "";
                 showMsg("Класс создан");
                 loadClasses();
+                loadGrades();
             } catch (e) { showMsg(e.message, false); }
         }
 
@@ -359,6 +360,7 @@
                 maxIdInput.value = "";
                 showMsg("Ученик добавлен");
                 loadClasses();
+                loadGrades();
             } catch (e) { showMsg(e.message, false); }
         }
 
@@ -368,6 +370,7 @@
                 await api(`/classes/${classId}/students/${studentId}`, { method: "DELETE" });
                 showMsg("Ученик удалён");
                 loadClasses();
+                loadGrades();
             } catch (e) { showMsg(e.message, false); }
         }
 
@@ -395,7 +398,9 @@
                 const res = await maxFetch("/api/teacher/gradebook");
                 if (!res.ok) {
                     const d = await res.json().catch(() => ({}));
-                    throw new Error(d.detail || ("Ошибка " + res.status));
+                    const detail = typeof d.detail === "string" ? d.detail
+                        : (Array.isArray(d.detail) ? d.detail.map(x => x.msg || JSON.stringify(x)).join("; ") : null);
+                    throw new Error(detail || ("Ошибка " + res.status));
                 }
                 const data = await res.json();
                 if (!data.tests || !data.tests.length) {
@@ -424,7 +429,7 @@
                         return `<td class="${scoreClass(sc.percent)}">${sc.score}/${sc.total}${pct != null ? ` <small>(${pct}%)</small>` : ""}</td>`;
                     }).join("");
                     return `<tr>
-                        <td class="name-col">${escapeHtml(shortName(st.username))}</td>
+                        <td class="name-col">${escapeHtml(st.username)}</td>
                         ${cells}
                     </tr>`;
                 }).join("");
@@ -446,6 +451,7 @@
         }
 
         loadClasses();
+        loadGrades();
     </script>
 </body>
 </html>
