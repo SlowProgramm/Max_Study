@@ -386,7 +386,7 @@ def get_current_user(
 ) -> User:
     return user_from_init_data(x_max_init_data, db)
 
-
+# s
 @app.post("/auth/max", response_model=UserResponse)
 def auth_max(data: MaxAuthRequest, db: Session = Depends(get_db)):
     return user_from_init_data(data.init_data, db)
