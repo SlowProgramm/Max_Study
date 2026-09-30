@@ -60,7 +60,7 @@ async function downloadMaterials(id, subject) {
 function render(items) {
   const box = document.getElementById("list");
   if (!items.length) {
-    box.innerHTML = '<p class="muted">Нет запланированных тестов.</p>';
+    box.innerHTML = '<p class="muted">Нет запланированных тестов.</p><p class="muted" style="margin-top:8px;font-size:13px">Если вы учитель и проверяете демо: добавьте <b>свой MAX ID</b> учеником в «Мой класс» — тогда анонсы появятся и здесь.</p>';
     return;
   }
   box.innerHTML = items.map(d => `

@@ -32,7 +32,7 @@ def upsert_user(max_id: int, name: str) -> bool:
 async def help_handler(event: MessageCreated):
     await event.message.answer(
         "Команды:\n\n"
-        "/start — меню MAX Study\n"
+        "/start — меню Синапс\n"
         "/help — этот список\n"
         "/id — показать ваш ID и указать ФИО"
     )

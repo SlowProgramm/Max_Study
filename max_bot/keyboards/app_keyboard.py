@@ -15,7 +15,7 @@ def get_app_keyboard(bot_username: str, bot_id: int) -> ButtonsPayload:
         buttons=[
             [
                 OpenAppButton(
-                    text="Открыть MAX Study",
+                    text="Открыть Синапс",
                     web_app=bot_username, #ЭТО ПЕРЕХОД НА МИНИ ПРИЛОЖЕНИЕ
                     contact_id=bot_id,
                 )

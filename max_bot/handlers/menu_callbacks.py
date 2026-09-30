@@ -4,7 +4,7 @@ from maxapi import Router
 from maxapi.types.updates.message_callback import MessageCallback
 
 from backend.database import SessionLocal
-from backend.models import Class, ClassMember, Question, Test, TestAttempt, User
+from backend.models import Class, ClassMember, Question, Test, TestAttempt, User, ScheduledTest
 from max_bot.handlers.commands import pending_fio
 from max_bot.keyboards.menus import (
     STUDENT_TEXT,
@@ -22,6 +22,7 @@ from max_bot.keyboards.menus import (
     build_student_keyboard,
     build_teacher_keyboard,
     build_teacher_tests_keyboard,
+    build_scheduled_keyboard,
 )
 
 router = Router()
@@ -80,6 +81,8 @@ async def on_teacher_section(event: MessageCallback, payload: TeacherSectionPayl
         await _show_teacher_class(event, bot_username, bot_id, max_id)
     elif payload.section == "my_tests":
         await _show_teacher_tests(event, bot_username, bot_id, max_id)
+    elif payload.section == "scheduled":
+        await _show_scheduled(event, bot_username, bot_id, max_id, role="teacher")
 
 
 async def _show_teacher_class(event, bot_username, bot_id, max_id):
@@ -239,6 +242,8 @@ async def on_student_section(event: MessageCallback, payload: StudentSectionPayl
 
     if payload.section == "my_tests":
         await _show_student_tests(event, bot_username, bot_id, max_id)
+    elif payload.section == "scheduled":
+        await _show_scheduled(event, bot_username, bot_id, max_id, role="student")
 
 
 async def _request_id(event, max_id):
@@ -332,6 +337,95 @@ async def _show_student_tests(event, bot_username, bot_id, max_id):
         await event.edit(
             text=text,
             attachments=[build_student_history_keyboard(bot_username, bot_id).as_markup()],
+        )
+    finally:
+        db.close()
+
+
+
+
+async def _show_scheduled(event, bot_username, bot_id, max_id, role: str = "student"):
+    back = build_back_to_student if role == "student" else build_back_to_teacher
+    if not max_id:
+        await event.edit(
+            text="Не удалось определить пользователя. Напишите /start.",
+            attachments=[back().as_markup()],
+        )
+        return
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.max_id == max_id).first()
+        if not user:
+            await event.edit(
+                text="Вы ещё не зарегистрированы. Откройте мини-приложение или напишите /id.",
+                attachments=[back().as_markup()],
+            )
+            return
+
+        from datetime import datetime, date
+        today_start = datetime.combine(date.today(), datetime.min.time())
+
+        if role == "teacher":
+            items = (
+                db.query(ScheduledTest)
+                .filter(
+                    ScheduledTest.teacher_id == user.id,
+                    ScheduledTest.scheduled_date >= today_start,
+                )
+                .order_by(ScheduledTest.scheduled_date.asc())
+                .limit(5)
+                .all()
+            )
+        else:
+            class_ids = [
+                r[0]
+                for r in db.query(ClassMember.class_id)
+                .filter(ClassMember.student_id == user.id)
+                .all()
+            ]
+            if not class_ids:
+                await event.edit(
+                    text=(
+                        "Запланированные тесты\n\n"
+                        "Вы пока не в классе.\n"
+                        "Для демо: откройте «Мой класс» как учитель и добавьте "
+                        "свой MAX ID как ученика."
+                    ),
+                    attachments=[build_scheduled_keyboard(bot_username, bot_id, role).as_markup()],
+                )
+                return
+            items = (
+                db.query(ScheduledTest)
+                .filter(
+                    ScheduledTest.class_id.in_(class_ids),
+                    ScheduledTest.scheduled_date >= today_start,
+                )
+                .order_by(ScheduledTest.scheduled_date.asc())
+                .limit(5)
+                .all()
+            )
+
+        if not items:
+            await event.edit(
+                text="Запланированные тесты\n\nПока нет предстоящих тестов.",
+                attachments=[build_scheduled_keyboard(bot_username, bot_id, role).as_markup()],
+            )
+            return
+
+        lines = ["Запланированные тесты:\n"]
+        for i, it in enumerate(items, 1):
+            try:
+                d = it.scheduled_date.strftime("%d.%m.%Y")
+            except Exception:
+                d = str(it.scheduled_date)
+            lines.append(f"{i}. {it.subject} — {it.title} ({d})")
+        lines.append("")
+        lines.append("Нажмите «Подробнее» для полного списка и материалов.")
+
+        await event.edit(
+            text="\n".join(lines),
+            attachments=[build_scheduled_keyboard(bot_username, bot_id, role).as_markup()],
         )
     finally:
         db.close()

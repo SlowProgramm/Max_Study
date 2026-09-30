@@ -6,11 +6,11 @@
   <script src="https://st.max.ru/js/max-web-app.js"></script>
   <script src="/static/max-auth.js"></script>
   <link rel="stylesheet" href="/static/style.css">
-  <title>MAX Study</title>
+  <title>Синапс</title>
 </head>
 <body>
   <div class="center-page" id="menu">
-    <h1>MAX Study</h1>
+    <h1>Синапс</h1>
     <p class="subtitle">Выберите роль</p>
     <div class="menu-stack">
       <button class="teacher" onclick="location.href='/teacher_page'">Я учитель</button>
@@ -53,7 +53,9 @@
     "student_take_test": "/student.html",
     "student_create_test": "/student.html",
     "student_history": "/history_page",
-    "smart_notes": "/smart_notes.html"
+    "smart_notes": "/smart_notes.html",
+    "student_scheduled": "/student_scheduled",
+    "teacher_scheduled": "/scheduled_page"
   };
   if (map[p]) location.replace(map[p]);
 })();

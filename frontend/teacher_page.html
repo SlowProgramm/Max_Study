@@ -1,7 +1,66 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <script src="https://st.max.ru/js/max-web-app.js"></script> <script src="/static/max-auth.js"></script> <link rel="stylesheet" href="/static/style.css"> <title> Учитель — MAX Study</title>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://st.max.ru/js/max-web-app.js"></script>
+<script src="/static/max-auth.js"></script>
+<link rel="stylesheet" href="/static/style.css">
+<title>Учитель — Синапс</title>
+<style>
+  .menu-group {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 10px;
+    margin-bottom: 12px;
+  }
+  .menu-group .label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0 0 8px 4px;
+  }
+  .menu-group.tests {
+    border-color: #bfdbfe;
+    background: #f0f7ff;
+  }
+  .menu-group.tests .label { color: #1d4ed8; }
+  .menu-group.tests button {
+    background: #2563eb;
+    margin-bottom: 6px;
+  }
+  .menu-group.tests button:last-child { margin-bottom: 0; }
+  .menu-group.tests button:hover { background: #1d4ed8; }
+  .menu-group.other button {
+    background: #4b5563;
+    margin-bottom: 6px;
+  }
+  .menu-group.other button:last-child { margin-bottom: 0; }
+  .menu-group.other button:hover { background: #374151; }
+  .menu-stack { gap: 0; }
+</style>
 </head>
-<body> <div class="center-page"> <h1> Меню учителя</h1> <p class="subtitle"> Управление тестами и классом</p> <div class="menu-stack"> <button onclick="location.href='/class_page'"> Мой класс</button> <button onclick="location.href='/teacher.html'"> Создать тест</button> <button onclick="location.href='/my_tests'"> Мои тесты</button> <button onclick="location.href='/scheduled_page'"> Запланированные</button> <button onclick="location.href='/analytics_page'"> Аналитика</button> <button class="ghost" onclick="location.href='/'">← На главную</button> </div> </div>
+<body>
+<div class="center-page">
+  <h1>Меню учителя</h1>
+  <p class="subtitle">Синапс — управление классом и тестами</p>
+  <div class="menu-stack">
+    <div class="menu-group tests">
+      <div class="label">Тесты</div>
+      <button onclick="location.href='/teacher.html'">Создать тест</button>
+      <button onclick="location.href='/my_tests'">Мои тесты</button>
+      <button onclick="location.href='/scheduled_page'">Запланированные</button>
+    </div>
+    <div class="menu-group other">
+      <div class="label">Класс</div>
+      <button onclick="location.href='/class_page'">Мой класс</button>
+      <button onclick="location.href='/analytics_page'">Аналитика</button>
+    </div>
+    <button class="ghost" onclick="location.href='/'">← На главную</button>
+  </div>
+</div>
 </body>
 </html>

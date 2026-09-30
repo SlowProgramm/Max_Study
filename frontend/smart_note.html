@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head> <script src="https://st.max.ru/js/max-web-app.js"></script>
-<script src="/static/max-auth.js"></script> <link rel="stylesheet" href="/static/style.css"> <meta charset="UTF-8"> <title> Умный конспект — MAX Study</title> <style> * { box-sizing: border-box; margin: 0; padding: 0; }
+<script src="/static/max-auth.js"></script> <link rel="stylesheet" href="/static/style.css"> <meta charset="UTF-8"> <title> Умный конспект — Синапс</title> <style> * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: system-ui, sans-serif;
             max-width: 800px;
@@ -158,7 +158,7 @@
         .back:hover { text-decoration: underline; }
     </style>
 </head>
-<body> <a class="back" href="/student_page">← Назад</a> <h1> Умный конспект</h1> <p class="subtitle"> Выберите, на основе чего сделать конспект</p> <!-- ── Выбор источника ───────────────────── --> <div class="source-options"> <button class="source-option active" data-source="topic"> <span class="label"> По теме</span> <span class="hint"> Введу название темы</span> </button> <button class="source-option" data-source="text"> <span class="label"> По тексту</span> <span class="hint"> Вставлю текст вручную</span> </button> <button class="source-option" data-source="file"> <span class="label"> По файлу</span> <span class="hint"> Загружу .txt или .pdf</span> </button> </div> <!-- ── Поле: тема ────────────────────────── --> <div class="field visible" id="field-topic"> <label> Тема конспекта</label> <input type="text" id="topic-input"
+<body> <a class="back" href="/student_page">← Назад</a> <h1> Умный конспект</h1><p class="ai-disclaimer" style="font-size:12px;color:#6b7280;margin:8px 0 12px;line-height:1.4">⚠️ Конспект создан ИИ и может содержать неточности. Сверяйте с учебником.</p> <p class="subtitle"> Выберите, на основе чего сделать конспект</p> <!-- ── Выбор источника ───────────────────── --> <div class="source-options"> <button class="source-option active" data-source="topic"> <span class="label"> По теме</span> <span class="hint"> Введу название темы</span> </button> <button class="source-option" data-source="text"> <span class="label"> По тексту</span> <span class="hint"> Вставлю текст вручную</span> </button> <button class="source-option" data-source="file"> <span class="label"> По файлу</span> <span class="hint"> Загружу .txt или .pdf</span> </button> </div> <!-- ── Поле: тема ────────────────────────── --> <div class="field visible" id="field-topic"> <label> Тема конспекта</label> <input type="text" id="topic-input"
                placeholder="Например: Фотосинтез, Вторая мировая война, SQL JOIN'ы"> </div> <!-- ── Поле: текст ───────────────────────── --> <div class="field" id="field-text"> <label> Вставьте текст</label> <textarea id="text-input"
                   placeholder="Вставьте сюда текст, на основе которого нужно сделать конспект"></textarea> </div> <!-- ── Поле: файл ────────────────────────── --> <div class="field" id="field-file"> <label> Прикрепите файл</label> <input type="file" id="file-input" accept=".txt,.pdf"> <p class="file-name" id="file-name"></p> </div> <button class="generate-btn" id="generate-btn"> Создать конспект</button> <p id="status"></p> <div id="result"> <h2> Конспект</h2> <div class="notes-box" id="notes-content"></div> <button class="test-btn" id="test-btn"> Пройти тест для закрепления</button> </div> <script> let currentSource = "topic";
     let currentTopic = "";

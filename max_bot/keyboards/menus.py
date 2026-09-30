@@ -1,5 +1,5 @@
 """
-Тексты и клавиатуры главного меню MAX Study.
+Тексты и клавиатуры главного меню Синапс.
 
 OpenAppButton: у бота один URL мини-приложения; нужный экран задаётся
 через payload → start_param → роутинг на фронте (index.html).
@@ -21,6 +21,8 @@ APP_PAGE_STUDENT_TAKE_TEST = "student_take_test"
 APP_PAGE_STUDENT_HISTORY = "student_history"
 APP_PAGE_SMART_NOTES = "smart_notes"
 APP_PAGE_JOURNAL_TEST = "journal_test"  # + _<id>
+APP_PAGE_STUDENT_SCHEDULED = "student_scheduled"
+APP_PAGE_TEACHER_SCHEDULED = "teacher_scheduled"
 
 
 # ── callback payloads ─────────────────────────────────────────────────────
@@ -29,11 +31,11 @@ class RolePayload(CallbackPayload, prefix="role"):
 
 
 class TeacherSectionPayload(CallbackPayload, prefix="tch_sec"):
-    section: str  # class | my_tests
+    section: str  # class | my_tests | scheduled
 
 
 class StudentSectionPayload(CallbackPayload, prefix="stu_sec"):
-    section: str  # my_tests | request_id
+    section: str  # my_tests | request_id | scheduled
 
 
 class BackPayload(CallbackPayload, prefix="back"):
@@ -42,7 +44,7 @@ class BackPayload(CallbackPayload, prefix="back"):
 
 # ── тексты ────────────────────────────────────────────────────────────────
 WELCOME_TEXT = (
-    "Добро пожаловать в MAX Study!\n\n"
+    "Добро пожаловать в Синапс!\n\n"
     "Тесты, проверка знаний и умные конспекты.\n\n"
     "Выберите роль:"
 )
@@ -90,6 +92,12 @@ def build_teacher_keyboard(bot_username: str, bot_id: int) -> InlineKeyboardBuil
         )
     )
     kb.row(
+        CallbackButton(
+            text="Запланированные",
+            payload=TeacherSectionPayload(section="scheduled").pack(),
+        )
+    )
+    kb.row(
         OpenAppButton(
             text="Аналитика",
             web_app=bot_username,
@@ -107,10 +115,16 @@ def build_student_keyboard(bot_username: str, bot_id: int) -> InlineKeyboardBuil
     kb = InlineKeyboardBuilder()
     kb.row(
         OpenAppButton(
-            text="Пройти тест",
+            text="Найти тест по коду",
             web_app=bot_username,
             contact_id=bot_id,
             payload=APP_PAGE_STUDENT_TAKE_TEST,
+        )
+    )
+    kb.row(
+        CallbackButton(
+            text="Запланированные",
+            payload=StudentSectionPayload(section="scheduled").pack(),
         )
     )
     kb.row(
@@ -221,4 +235,27 @@ def build_class_detail_keyboard(
         )
     )
     kb.row(CallbackButton(text="В меню учителя", payload=BackPayload(to="teacher").pack()))
+    return kb
+
+
+def build_scheduled_keyboard(
+    bot_username: str,
+    bot_id: int,
+    role: str = "student",
+) -> InlineKeyboardBuilder:
+    """Кнопка «Подробнее» → страница запланированных."""
+    kb = InlineKeyboardBuilder()
+    page = APP_PAGE_STUDENT_SCHEDULED if role == "student" else APP_PAGE_TEACHER_SCHEDULED
+    kb.row(
+        OpenAppButton(
+            text="Подробнее",
+            web_app=bot_username,
+            contact_id=bot_id,
+            payload=page,
+        )
+    )
+    if role == "student":
+        kb.row(CallbackButton(text="В меню ученика", payload=BackPayload(to="student").pack()))
+    else:
+        kb.row(CallbackButton(text="В меню учителя", payload=BackPayload(to="teacher").pack()))
     return kb

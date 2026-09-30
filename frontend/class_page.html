@@ -1,6 +1,21 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <title> Мой класс</title> <script src="https://st.max.ru/js/max-web-app.js"></script> <script src="/static/max-auth.js"></script> <link rel="stylesheet" href="/static/style.css"> <style> * { box-sizing: border-box; }
+<head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <title> Мой класс</title> <script src="https://st.max.ru/js/max-web-app.js">
+        async function showMyMaxId() {
+            try {
+                const res = await maxFetch("/auth/me");
+                if (!res.ok) return;
+                const u = await res.json();
+                const el = document.getElementById("myMaxIdHint");
+                if (el && u.max_id) {
+                    el.innerHTML = "Ваш MAX ID: <b>" + u.max_id + "</b> — можно вставить в поле выше, чтобы добавить себя учеником (демо).";
+                    el.style.display = "block";
+                }
+            } catch (e) {}
+        }
+        showMyMaxId();
+
+</script> <script src="/static/max-auth.js"></script> <link rel="stylesheet" href="/static/style.css"> <style> * { box-sizing: border-box; }
         body {
             font-family: system-ui, sans-serif;
             max-width: 720px;
@@ -184,7 +199,7 @@
         .grades-section h2 { font-size: 17px; margin: 0 0 10px; }
     </style>
 </head>
-<body> <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button> <h1> Мой класс</h1> <p class="subtitle"> Один класс на учителя (MVP). Пустые классы удаляются автоматически.</p> <div id="msg" class="msg"></div> <!-- Переключатель --> <button class="edit-toggle" id="editToggle" onclick="toggleEdit()"> <span> Редактировать класс</span> <span class="arrow">▾</span> </button> <!-- Скрываемая панель --> <div class="edit-panel" id="editPanel"> <div class="card" id="createClassCard"> <h2> Создать класс</h2> <div class="row"> <input id="className" placeholder="Например, 10-А" /> <button class="btn" onclick="createClass()"> Создать</button> </div> </div> <div class="card"> <h2> Добавить ученика по MAX ID</h2> <div class="row"> <input id="maxId" type="number" placeholder="MAX ID ученика" /> <select id="classSelectAdd"></select> <button class="btn" onclick="addStudent()"> Добавить</button> </div> <p class="muted" style="margin: 8px 0 0;"> Ученик должен сначала написать боту команду <code>/id</code>.
+<body> <button class="back" onclick="location.href='/teacher_page'">← В меню учителя</button> <h1> Мой класс</h1> <p class="subtitle"> Один класс (MVP). Для демо можно добавить <b>себя</b> по своему MAX ID.</p> <div id="msg" class="msg"></div> <!-- Переключатель --> <button class="edit-toggle" id="editToggle" onclick="toggleEdit()"> <span> Редактировать класс</span> <span class="arrow">▾</span> </button> <!-- Скрываемая панель --> <div class="edit-panel" id="editPanel"> <div class="card" id="createClassCard"> <h2> Создать класс</h2> <div class="row"> <input id="className" placeholder="Например, 10-А" /> <button class="btn" onclick="createClass()"> Создать</button> </div> </div> <div class="card"> <h2> Добавить ученика по MAX ID</h2> <div class="row"> <input id="maxId" type="number" placeholder="MAX ID ученика" /> <select id="classSelectAdd"></select> <button class="btn" onclick="addStudent()"> Добавить</button> </div> <p class="muted" style="margin: 8px 0 0;"> Ученик должен сначала написать боту <code>/id</code>. <span id="myMaxIdHint" class="muted" style="display:block;margin-top:6px"></span>
             </p> </div> <div class="card"> <h2> Удалить ученика по MAX ID</h2> <div class="row"> <input id="removeMaxId" type="number" placeholder="MAX ID для удаления" /> <select id="classSelectRemove"></select> <button class="btn danger"  style="color:white" onclick="removeStudentByMaxId()"> Удалить</button> </div> <p class="muted" style="margin: 8px 0 0;"> Чтобы не удалить по ошибке — нужно явно ввести MAX ID ученика.
             </p> </div> </div> <!-- Единая таблица: ученики и оценки --> <div class="grades-section" id="gradesSection"> <h2> Оценки за тесты</h2> <div id="grades"><p class="muted"> Загрузка...</p></div> </div> <script> const API = "/api/class";
         let editMode = false;

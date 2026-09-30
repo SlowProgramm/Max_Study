@@ -87,7 +87,7 @@ class GenerateNotesRequest(BaseModel):
 
 # ─── Приложение ─────────────────────────────────
 
-app = FastAPI(title="MAX Study")
+app = FastAPI(title="Синапс")
 
 app.add_middleware(
     CORSMiddleware,
@@ -980,9 +980,7 @@ def add_student(
             "Пусть он сначала напишет боту команду /myid.",
         )
 
-    if student.id == user.id:
-        raise HTTPException(400, "Нельзя добавить самого себя")
-
+    # Демо: можно добавить себя учеником в свой класс
     exists = (
         db.query(ClassMember)
         .filter(
