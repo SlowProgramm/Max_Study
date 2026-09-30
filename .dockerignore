@@ -1,0 +1,15 @@
+.git
+.venv
+venv
+env
+__pycache__
+*.pyc
+*.pyo
+.idea
+.DS_Store
+*.log
+.env
+postgres_data
+node_modules
+*.md
+!README.md
