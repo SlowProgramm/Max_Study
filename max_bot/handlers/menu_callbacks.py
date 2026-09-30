@@ -27,6 +27,20 @@ from max_bot.keyboards.menus import (
 
 router = Router()
 
+def _is_student_registered(max_id) -> bool:
+    if not max_id:
+        return False
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.max_id == max_id).first()
+        if not user:
+            return False
+        return bool((getattr(user, "full_name", None) or "").strip())
+    finally:
+        db.close()
+
+
+
 
 def _bot_app_ids(event: MessageCallback) -> tuple[str, int]:
     me = event.bot.me
@@ -52,9 +66,21 @@ async def on_role_selected(event: MessageCallback, payload: RolePayload):
             attachments=[build_teacher_keyboard(bot_username, bot_id).as_markup()],
         )
     else:
+        max_id = None
+        try:
+            if event.callback and event.callback.user:
+                max_id = event.callback.user.user_id
+        except Exception:
+            pass
+        registered = _is_student_registered(max_id)
+        text = STUDENT_TEXT if registered else (
+            "Режим ученика\n\n"
+            "Сначала пройдите регистрацию: укажите Фамилию и Имя.\n"
+            "После этого откроется полное меню."
+        )
         await event.edit(
-            text=STUDENT_TEXT,
-            attachments=[build_student_keyboard(bot_username, bot_id).as_markup()],
+            text=text,
+            attachments=[build_student_keyboard(bot_username, bot_id, registered).as_markup()],
         )
 
 
@@ -111,7 +137,7 @@ async def _show_teacher_class(event, bot_username, bot_id, max_id):
         )
         if not classes:
             await event.edit(
-                text="У вас пока нет классов.\nДобавьте класс в мини-приложении (Мой класс).",
+                text="У вас пока нет классов.\nДобавьте класс в мини-приложении (Журнал).",
                 attachments=[build_class_detail_keyboard(bot_username, bot_id, None).as_markup()],
             )
             return
@@ -127,7 +153,7 @@ async def _show_teacher_class(event, bot_username, bot_id, max_id):
         if last_test:
             q_count = db.query(Question).filter(Question.test_id == last_test.id).count()
 
-        lines = ["Мой класс\n"]
+        lines = ["Журнал\n"]
         if last_test:
             lines.append(f"Последний тест: {last_test.title or 'Без названия'}\n")
         else:
@@ -240,6 +266,17 @@ async def on_student_section(event: MessageCallback, payload: StudentSectionPayl
         await _request_id(event, max_id)
         return
 
+    # Без регистрации — только Регистрация
+    if not _is_student_registered(max_id):
+        await event.edit(
+            text=(
+                "Сначала пройдите регистрацию.\n"
+                "Нажмите «Регистрация» и укажите Фамилию и Имя."
+            ),
+            attachments=[build_student_keyboard(bot_username, bot_id, False).as_markup()],
+        )
+        return
+
     if payload.section == "my_tests":
         await _show_student_tests(event, bot_username, bot_id, max_id)
     elif payload.section == "scheduled":
@@ -284,7 +321,7 @@ async def _request_id(event, max_id):
     await event.edit(
         text=(
             f"Ваш ID: {max_id}\n\n"
-            f"Передайте его преподавателю, чтобы он добавил вас в класс.\n\n"
+            f"Напишите следующим сообщением Фамилию и Имя (например: Иванов Иван).\nПосле этого меню ученика откроется полностью.\n\nПередайте ID преподавателю, чтобы он добавил вас в класс.\n\n"
             f"{extra}"
         ),
         attachments=[build_back_to_student().as_markup()],
@@ -389,7 +426,7 @@ async def _show_scheduled(event, bot_username, bot_id, max_id, role: str = "stud
                     text=(
                         "Запланированные тесты\n\n"
                         "Вы пока не в классе.\n"
-                        "Для демо: откройте «Мой класс» как учитель и добавьте "
+                        "Для демо: откройте «Журнал» как учитель и добавьте "
                         "свой MAX ID как ученика."
                     ),
                     attachments=[build_scheduled_keyboard(bot_username, bot_id, role).as_markup()],
@@ -447,7 +484,18 @@ async def on_back(event: MessageCallback, payload: BackPayload):
             attachments=[build_teacher_keyboard(bot_username, bot_id).as_markup()],
         )
     elif payload.to == "student":
+        max_id = None
+        try:
+            if event.callback and event.callback.user:
+                max_id = event.callback.user.user_id
+        except Exception:
+            pass
+        registered = _is_student_registered(max_id)
+        text = STUDENT_TEXT if registered else (
+            "Режим ученика\n\n"
+            "Сначала пройдите регистрацию: укажите Фамилию и Имя."
+        )
         await event.edit(
-            text=STUDENT_TEXT,
-            attachments=[build_student_keyboard(bot_username, bot_id).as_markup()],
+            text=text,
+            attachments=[build_student_keyboard(bot_username, bot_id, registered).as_markup()],
         )

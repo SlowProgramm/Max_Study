@@ -40,14 +40,24 @@ async function downloadMaterials(id, subject) {
   try {
     const res = await maxFetch("/api/scheduled/" + id + "/materials");
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(maxErrorText(res.status, data));
+      let msg = "Ошибка " + res.status;
+      try {
+        const ct = res.headers.get("content-type") || "";
+        if (ct.indexOf("json") >= 0) {
+          const data = await res.json();
+          msg = maxErrorText(res.status, data);
+        } else {
+          const t = await res.text();
+          if (t) msg = t.slice(0, 200);
+        }
+      } catch (_) {}
+      throw new Error(msg);
     }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "materials_" + (subject || "test") + ".txt";
+    a.download = "materials_" + (subject || "test").replace(/[^\w\u0400-\u04FF-]+/g, "_") + ".txt";
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -60,7 +70,7 @@ async function downloadMaterials(id, subject) {
 function render(items) {
   const box = document.getElementById("list");
   if (!items.length) {
-    box.innerHTML = '<p class="muted">Нет запланированных тестов.</p><p class="muted" style="margin-top:8px;font-size:13px">Если вы учитель и проверяете демо: добавьте <b>свой MAX ID</b> учеником в «Мой класс» — тогда анонсы появятся и здесь.</p>';
+    box.innerHTML = '<p class="muted">Нет запланированных тестов.</p><p class="muted" style="margin-top:8px;font-size:13px">Если вы учитель и проверяете демо: добавьте <b>свой MAX ID</b> учеником в «Журнал» — тогда анонсы появятся и здесь.</p>';
     return;
   }
   box.innerHTML = items.map(d => `

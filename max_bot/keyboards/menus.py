@@ -73,7 +73,7 @@ def build_teacher_keyboard(bot_username: str, bot_id: int) -> InlineKeyboardBuil
     kb = InlineKeyboardBuilder()
     kb.row(
         CallbackButton(
-            text="Мой класс",
+            text="Журнал",
             payload=TeacherSectionPayload(section="class").pack(),
         )
     )
@@ -111,8 +111,25 @@ def build_teacher_keyboard(bot_username: str, bot_id: int) -> InlineKeyboardBuil
     return kb
 
 
-def build_student_keyboard(bot_username: str, bot_id: int) -> InlineKeyboardBuilder:
+def build_student_keyboard(
+    bot_username: str,
+    bot_id: int,
+    registered: bool = True,
+) -> InlineKeyboardBuilder:
+    """Пока нет ФИО (регистрация) — только кнопка «Регистрация»."""
     kb = InlineKeyboardBuilder()
+    if not registered:
+        kb.row(
+            CallbackButton(
+                text="Регистрация",
+                payload=StudentSectionPayload(section="request_id").pack(),
+            )
+        )
+        kb.row(
+            CallbackButton(text="Назад", payload=BackPayload(to="roles").pack())
+        )
+        return kb
+
     kb.row(
         OpenAppButton(
             text="Найти тест по коду",
@@ -139,12 +156,6 @@ def build_student_keyboard(bot_username: str, bot_id: int) -> InlineKeyboardBuil
             web_app=bot_username,
             contact_id=bot_id,
             payload=APP_PAGE_SMART_NOTES,
-        )
-    )
-    kb.row(
-        CallbackButton(
-            text="Запросить ID",
-            payload=StudentSectionPayload(section="request_id").pack(),
         )
     )
     kb.row(
@@ -220,7 +231,7 @@ def build_class_detail_keyboard(
     if test_id:
         kb.row(
             OpenAppButton(
-                text="Подробнее",
+                text="Последний тест",
                 web_app=bot_username,
                 contact_id=bot_id,
                 payload=f"{APP_PAGE_JOURNAL_TEST}_{test_id}",
@@ -228,7 +239,7 @@ def build_class_detail_keyboard(
         )
     kb.row(
         OpenAppButton(
-            text="Открыть класс",
+            text="Журнал",
             web_app=bot_username,
             contact_id=bot_id,
             payload=APP_PAGE_TEACHER_CLASS,

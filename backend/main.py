@@ -2221,12 +2221,20 @@ def download_materials(
         raise HTTPException(404, "Материалов нет")
 
     from fastapi.responses import Response
-    filename = f"materials_{item.subject}_{item.id}.txt".replace(" ", "_")
+    from urllib.parse import quote
+    # ASCII-only filename — кириллица в Content-Disposition даёт 500 у части прокси
+    safe_name = f"materials_{item.id}.txt"
+    utf8_name = quote(f"materials_{item.subject or 'prep'}_{item.id}.txt".replace(" ", "_"))
+    body = (item.materials_text or "").encode("utf-8")
     return Response(
-        content=item.materials_text.encode("utf-8"),
+        content=body,
         media_type="text/plain; charset=utf-8",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"'
+            "Content-Disposition": (
+                f'attachment; filename="{safe_name}"; '
+                f"filename*=UTF-8''{utf8_name}"
+            ),
+            "Content-Length": str(len(body)),
         },
     )
 

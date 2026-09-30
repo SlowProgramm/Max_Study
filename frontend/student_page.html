@@ -60,6 +60,33 @@
     </div>
     <button class="ghost" onclick="location.href='/'">← На главную</button>
   </div>
+  <div id="regGate" style="display:none">
+    <p class="subtitle" style="margin-bottom:16px">Чтобы пользоваться разделом ученика, пройдите регистрацию в боте: кнопка «Регистрация» → укажите Фамилию и Имя.</p>
+    <button class="ghost" onclick="location.href='/'">← На главную</button>
+  </div>
 </div>
+<script>
+(async function checkStudentReg() {
+  var stack = document.querySelector(".menu-stack");
+  var gate = document.getElementById("regGate");
+  try {
+    var res = await maxFetch("/auth/me");
+    if (!res.ok) {
+      if (stack) stack.style.display = "none";
+      if (gate) gate.style.display = "block";
+      return;
+    }
+    var u = await res.json();
+    var registered = !!(u.full_name && String(u.full_name).trim());
+    if (!registered) {
+      if (stack) stack.style.display = "none";
+      if (gate) gate.style.display = "block";
+    }
+  } catch (e) {
+    if (stack) stack.style.display = "none";
+    if (gate) gate.style.display = "block";
+  }
+})();
+</script>
 </body>
 </html>

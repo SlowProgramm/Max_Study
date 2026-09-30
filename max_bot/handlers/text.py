@@ -49,13 +49,22 @@ async def text_handler(event: MessageCreated):
         pending_fio.discard(max_id)
 
         await event.message.answer(
-            f"ФИО сохранено: {user.full_name}\n\n"
+            f"Регистрация завершена: {user.full_name}\n\n"
             f"Ваш ID: {max_id} — передайте его преподавателю."
         )
-        # Снова основное меню
-        await event.message.answer(
-            text=WELCOME_TEXT,
-            attachments=[build_role_keyboard().as_markup()],
-        )
+        # Полное меню ученика
+        try:
+            me = event.bot.me
+            bot_username, bot_id = me.username, me.user_id
+            from max_bot.keyboards.menus import STUDENT_TEXT, build_student_keyboard
+            await event.message.answer(
+                text=STUDENT_TEXT,
+                attachments=[build_student_keyboard(bot_username, bot_id, True).as_markup()],
+            )
+        except Exception:
+            await event.message.answer(
+                text=WELCOME_TEXT,
+                attachments=[build_role_keyboard().as_markup()],
+            )
     finally:
         db.close()

@@ -342,6 +342,8 @@ class UserResponse(BaseModel):
 
     username: str
 
+    full_name: str | None = None
+
 
     class Config:
         from_attributes = True
